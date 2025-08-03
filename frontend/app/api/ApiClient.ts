@@ -13,7 +13,7 @@ class ApiClient {
     private baseURL: string;
     private timeout: number;
 
-    constructor(baseURL: string = 'http://localhost:3000/api', timeout: number = 10000) {
+    constructor(baseURL: string = import.meta.env.VITE_BASE_URL ?? '', timeout: number = 10000) {
         this.baseURL = baseURL;
         this.timeout = timeout;
     }
