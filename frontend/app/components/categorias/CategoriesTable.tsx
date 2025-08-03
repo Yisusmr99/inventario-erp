@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import CategoryForm from './CategoryForm'
 import DeleteCategoryDialog from './DeleteCategoryDialog'
-import { ProductCategoriesApi, type ProductCategory, type CreateProductCategoryRequest, type UpdateProductCategoryRequest } from 'app/api/productCategories'
+import { ProductCategoriesApi, type ProductCategory, type CreateProductCategoryRequest, type UpdateProductCategoryRequest } from 'app/api/ProductCategories'
 
 
 interface Category {
