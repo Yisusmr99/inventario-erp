@@ -11,6 +11,7 @@ const corsOptions = {
     origin: [
         'http://localhost:5173', // Default Vite port
         'http://localhost:5174', // Alternative Vite port
+        'https://inventario-erp-production.up.railway.app/'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
