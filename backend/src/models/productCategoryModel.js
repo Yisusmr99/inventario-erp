@@ -16,13 +16,20 @@ class ProductCategoryModel {
     /**
      * Obtener todas las categorías de productos
      */
-    static async findAll() {
-        const query = `
-            SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
-            FROM CategoriaProducto
-            ORDER BY nombre ASC
-        `;
-        const [rows] = await db.execute(query);
+    static async findAll({ offset = 0, limit = 10, search = null } = {}) {
+        let query = `SELECT * FROM CategoriaProducto`;
+        const params = [];
+
+        if (search) {
+            query += ` WHERE nombre LIKE ? OR descripcion LIKE ?`;
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm);
+        }
+
+        query += ` ORDER BY id_categoria ASC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        const [rows] = await db.query(query, params);
         return rows;
     }
 
@@ -75,6 +82,23 @@ class ProductCategoryModel {
         
         const [rows] = await db.execute(query, params);
         return rows.length > 0;
+    }
+
+    /**
+     * Contar el número total de categorías de producto
+     */
+    static async count(search = null) {
+        let query = `SELECT COUNT(*) AS total FROM CategoriaProducto`;
+        const params = [];
+
+        if (search) {
+            query += ` WHERE nombre LIKE ? OR descripcion LIKE ?`;
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm);
+        }
+
+        const [rows] = await db.execute(query, params);
+        return rows[0].total;
     }
 }
 
