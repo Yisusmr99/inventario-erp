@@ -31,9 +31,46 @@ class ProductCategoryService {
     /**
      * Obtener todas las categorías
      */
-    static async getAllCategories() {
+    static async getAllCategories({ page = 1, limit = 10, search = null } = {}) {
         try {
-            return await ProductCategoryModel.findAll();
+            const total = await ProductCategoryModel.count(search);
+            const totalPages = Math.ceil(total / limit);
+            const offset = (page - 1) * limit;
+
+            // Si no hay registros, devolver estructura vacía
+            if (total === 0) {
+                return {
+                    categories: [],
+                    totalCategories: 0,
+                    totalPages: 0,
+                    currentPage: page,
+                    hasNextPage: false,
+                    hasPreviousPage: false
+                };
+            }
+
+            // Si la página solicitada excede el total, devolver la última página
+            let currentPage = page;
+            let currentOffset = offset;
+            if (offset >= total) {
+                currentPage = totalPages;
+                currentOffset = (currentPage - 1) * limit;
+            }
+            
+            const categories = await ProductCategoryModel.findAll({ 
+                offset: parseInt(currentOffset), 
+                limit: parseInt(limit),
+                search
+            });
+
+            return {
+                categories,
+                totalCategories: total,
+                totalPages,
+                currentPage,
+                hasNextPage: currentPage < totalPages,
+                hasPreviousPage: currentPage > 1
+            };
         } catch (error) {
             throw error;
         }

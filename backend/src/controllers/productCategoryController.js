@@ -25,10 +25,40 @@ class ProductCategoryController {
      */
     static async getAllCategories(req, res) {
         try {
-            const categories = await ProductCategoryService.getAllCategories();
+            const { page = 1, limit = 10, search } = req.query;
+            const result = await ProductCategoryService.getAllCategories({ 
+                page: parseInt(page), 
+                limit: parseInt(limit),
+                search: search || null
+            });
+
+            // Construir URLs base
+            const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+            
+            // Construir query params para las URLs
+            const buildUrl = (pageNum) => {
+                const params = new URLSearchParams();
+                params.append('page', pageNum.toString());
+                params.append('limit', limit.toString());
+                if (search) params.append('search', search);
+                return `${baseUrl}?${params.toString()}`;
+            };
+
+            // Agregar información adicional de paginación con URLs
+            const response = {
+                ...result,
+                nextPage: result.hasNextPage ? result.currentPage + 1 : null,
+                previousPage: result.hasPreviousPage ? result.currentPage - 1 : null,
+                nextPageUrl: result.hasNextPage ? buildUrl(result.currentPage + 1) : null,
+                previousPageUrl: result.hasPreviousPage ? buildUrl(result.currentPage - 1) : null,
+                currentPageUrl: buildUrl(result.currentPage),
+                firstPageUrl: buildUrl(1),
+                lastPageUrl: result.totalPages > 0 ? buildUrl(result.totalPages) : null
+            };
+
             return ResponseHelper.success(
                 res, 
-                categories, 
+                response, 
                 'Categorías obtenidas exitosamente'
             );
         } catch (error) {

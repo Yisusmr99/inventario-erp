@@ -1,33 +1,31 @@
 import { apiClient } from './ApiClient';
-
-export interface ProductCategory {
-    id_categoria: number;
-    nombre: string;
-    descripcion: string;
-    estado: number;
-    fecha_creacion: string;
-}
-
-export interface CreateProductCategoryRequest {
-    nombre: string;
-    descripcion: string;
-    estado?: number;
-}
-
-export interface UpdateProductCategoryRequest {
-    nombre: string;
-    descripcion: string;
-    estado: number;
-}
+import type { ProductCategory, CreateProductCategoryRequest, UpdateProductCategoryRequest,
+    PaginationParams, PaginatedResponse
+  } from '~/types/ProductCategories';
 
 export class ProductCategoriesApi {
     private static readonly ENDPOINT = '/product-categories';
 
     /**
-     * Get all product categories
+     * Get all product categories (simple)
      */
     static async getAll(): Promise<ProductCategory[]> {
         const response = await apiClient.get<ProductCategory[]>(this.ENDPOINT);
+        return response.data;
+    }
+
+    /**
+     * Get all product categories with pagination
+     */
+    static async getAllWithPagination(params: PaginationParams = {}): Promise<PaginatedResponse> {
+        const queryParams = new URLSearchParams();
+        
+        if (params.page) queryParams.append('page', params.page.toString());
+        if (params.limit) queryParams.append('limit', params.limit.toString());
+        if (params.search) queryParams.append('search', params.search);
+
+        const url = queryParams.toString() ? `${this.ENDPOINT}?${queryParams}` : this.ENDPOINT;
+        const response = await apiClient.get<PaginatedResponse>(url);
         return response.data;
     }
 
