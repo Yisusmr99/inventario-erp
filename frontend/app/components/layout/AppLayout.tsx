@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useLayoutEffect } from 'react'
 import { useLocation, Link } from 'react-router'
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild, Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
 import {
@@ -13,6 +13,8 @@ import {
     UsersIcon,
     XMarkIcon,
     ChevronRightIcon,
+    TagIcon,
+    RectangleStackIcon
 } from '@heroicons/react/24/outline'
 
 const navigationItems = [
@@ -22,8 +24,8 @@ const navigationItems = [
         name: 'Productos', 
         icon: DocumentDuplicateIcon,
         children: [
-            { name: 'Categorías', href: '/products/categories' },
-            { name: 'Catálogo', href: '/products/catalog' },
+            { name: 'Categorías', href: '/products/categories', icon: TagIcon },
+            { name: 'Catálogo', href: '/products/catalog', icon: RectangleStackIcon },
         ]
     },
     // { name: 'Proveedores', href: '/suppliers', icon: UsersIcon },
@@ -56,84 +58,73 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
     }
 
     // Componente para renderizar elementos de navegación
-    const NavigationItem = ({ item, mobile = false }: { item: any, mobile?: boolean }) => {
-        if (item.children) {
-            // Determinar si el menú debe estar abierto por defecto
-            const shouldBeOpen = item.children.some((child: any) => location.pathname === child.href) ||
-                               location.pathname.startsWith('/products')
+    
+    const NavigationItem = ({ item }: { item: any }) => {
+        const location = useLocation();
 
-            return (
-                <Disclosure as="div" defaultOpen={shouldBeOpen}>
-                    {({ open }) => (
-                        <>
-                            <DisclosureButton
-                                className={classNames(
-                                    isItemActive(item)
-                                        ? 'bg-gray-50 text-indigo-600'
-                                        : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                                    'group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm/6 font-semibold',
-                                )}
-                            >
-                                <item.icon
-                                    aria-hidden="true"
-                                    className={classNames(
-                                        isItemActive(item) ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                                        'size-6 shrink-0',
-                                    )}
-                                />
-                                {item.name}
-                                <ChevronRightIcon
-                                    aria-hidden="true"
-                                    className={classNames(
-                                        open ? 'rotate-90 text-gray-500' : 'text-gray-400',
-                                        'ml-auto size-5 shrink-0 transition-transform duration-200',
-                                    )}
-                                />
-                            </DisclosureButton>
-                            <DisclosurePanel as="ul" className="mt-1 space-y-1">
-                                {item.children.map((subItem: any) => (
-                                    <li key={subItem.name}>
-                                        <Link
-                                            to={subItem.href}
-                                            className={classNames(
-                                                location.pathname === subItem.href
-                                                    ? 'bg-gray-50 text-indigo-600'
-                                                    : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                                                'block rounded-md py-2 pl-9 pr-2 text-sm/6 font-semibold',
-                                            )}
-                                        >
-                                            {subItem.name}
-                                        </Link>
-                                    </li>
-                                ))}
-                            </DisclosurePanel>
-                        </>
-                    )}
-                </Disclosure>
-            )
-        }
+        const isActive = (href: string) =>
+            location.pathname === href || (href !== '/' && location.pathname.startsWith(href));
+
+        const isItemActive = item.children?.some((child: any) => isActive(child.href));
+        // const isItemActive = true;
 
         return (
-            <Link
-                to={item.href}
-                className={classNames(
-                    isItemActive(item)
-                        ? 'bg-gray-50 text-indigo-600'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                    'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+            <Disclosure as="div" defaultOpen={true}>
+                {({ open }) => (
+                    <>
+                        <DisclosureButton
+                            className={classNames(
+                                isItemActive
+                                    ? 'bg-gray-50 text-indigo-600'
+                                    : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
+                                'group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm font-semibold',
+                            )}
+                        >
+                            <item.icon
+                                aria-hidden="true"
+                                className={classNames(
+                                    isItemActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
+                                    'h-6 w-6 shrink-0',
+                                )}
+                            />
+                            {item.name}
+                            <ChevronRightIcon
+                                aria-hidden="true"
+                                className={classNames(
+                                    open ? 'rotate-90 text-gray-500' : 'text-gray-400',
+                                    'ml-auto h-5 w-5 shrink-0 transition-transform duration-200',
+                                )}
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel as="ul" className="mt-1 space-y-1">
+                            {item.children.map((subItem: any) => (
+                                <li key={subItem.name}>
+                                    <Link
+                                        to={subItem.href}
+                                        className={classNames(
+                                            location.pathname === subItem.href
+                                                ? 'bg-gray-50 text-indigo-600'
+                                                : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
+                                            'flex items-center gap-x-3 block rounded-md py-2 pl-9 pr-2 text-sm font-semibold',
+                                        )}
+                                    >
+                                        <subItem.icon
+                                            aria-hidden="true"
+                                            className={classNames(
+                                                location.pathname === subItem.href ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
+                                                'h-5 w-5 shrink-0',
+                                            )}
+                                        />
+                                        {subItem.name}
+                                    </Link>
+                                </li>
+                            ))}
+                        </DisclosurePanel>
+                    </>
                 )}
-            >
-                <item.icon
-                    aria-hidden="true"
-                    className={classNames(
-                        isItemActive(item) ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                        'size-6 shrink-0',
-                    )}
-                />
-                {item.name}
-            </Link>
-        )
-    }
+            </Disclosure>
+        );
+    };
 
     return (
         <>
@@ -174,7 +165,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                                             <ul role="list" className="-mx-2 space-y-1">
                                                 {navigationItems.map((item) => (
                                                     <li key={item.name}>
-                                                        <NavigationItem item={item} mobile={true} />
+                                                        <NavigationItem item={item} />
                                                     </li>
                                                 ))}
                                             </ul>
