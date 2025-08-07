@@ -4,6 +4,7 @@ import type { ProductCategory, CreateProductCategoryRequest, UpdateProductCatego
   } from '~/types/ProductCategories';
 
 export class ProductCategoriesApi {
+    // CORRECCIÓN: El endpoint del backend para categorías es '/product-categories'.
     private static readonly ENDPOINT = '/product-categories';
 
     /**
@@ -66,10 +67,23 @@ export class ProductCategoriesApi {
     }
 
     /**
-     * Delete a product category
+     * Delete a product category (logical deletion)
+     * We now get the full category object before updating the status.
      */
     static async delete(id: number): Promise<void> {
-        await apiClient.delete(`${this.ENDPOINT}/${id}`);
+        const categoryToDelete = await this.getById(id);
+
+        if (categoryToDelete) {
+            const updateData: UpdateProductCategoryRequest = {
+                nombre: categoryToDelete.nombre,
+                descripcion: categoryToDelete.descripcion,
+                estado: 0, // '0' representa 'Inactiva'
+            };
+            
+            await apiClient.put(`${this.ENDPOINT}/${id}`, updateData);
+        } else {
+            throw new Error(`Category with ID ${id} not found.`);
+        }
     }
 }
 
