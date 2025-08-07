@@ -1,6 +1,10 @@
 import type { Route } from "./+types/home";
 import AppLayout from "../components/layout/AppLayout";
 
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useEffect } from "react";
+
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Dashboard - Inventario ERP" },
@@ -9,6 +13,11 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
+
+  useEffect(() => {
+    toast.success('Prueba de notificación');
+  }, []);
+
   return (
     <AppLayout pageTitle="Dashboard">
       <div className="space-y-6">
@@ -28,6 +37,18 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </AppLayout>
   );
 }
