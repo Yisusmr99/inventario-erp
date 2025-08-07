@@ -5,10 +5,10 @@ class ProductCategoryModel {
      * Crear una nueva categoría de producto
      */
     static async create({ nombre, descripcion, estado }) {
-        // CORRECCIÓN: Usamos el nombre de columna 'is_active' en la base de datos
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
         const query = `
-            INSERT INTO CategoriaProducto (nombre, descripcion, is_active)
-            VALUES (?, ?, ?)
+            INSERT INTO CategoriaProducto (nombre, descripcion, estado, fecha_creacion)
+            VALUES (?, ?, ?, CURDATE())
         `;
         const [result] = await db.execute(query, [nombre, descripcion || null, estado]);
         return result.insertId;
@@ -18,11 +18,11 @@ class ProductCategoryModel {
      * Obtener todas las categorías de productos
      */
     static async findAll({ offset = 0, limit = 10, search = null } = {}) {
-        // CORRECCIÓN: Se agrega la cláusula WHERE para filtrar por is_active = 1
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
         let query = `
-            SELECT id_categoria, nombre, descripcion, is_active AS estado
+            SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
             FROM CategoriaProducto
-            WHERE is_active = 1
+            WHERE estado = 1
         `;
         const params = [];
 
@@ -43,9 +43,9 @@ class ProductCategoryModel {
      * Obtener una categoría por ID
      */
     static async findById(id) {
-        // CORRECCIÓN: Usamos el nombre de columna 'is_active' y un alias
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
         const query = `
-            SELECT id_categoria, nombre, descripcion, is_active AS estado
+            SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
             FROM CategoriaProducto
             WHERE id_categoria = ?
         `;
@@ -57,10 +57,10 @@ class ProductCategoryModel {
      * Actualizar una categoría de producto
      */
     static async update(id, { nombre, descripcion, estado }) {
-        // CORRECCIÓN: Usamos el nombre de columna 'is_active'.
+        // Usa la columna correcta: 'estado'
         const query = `
             UPDATE CategoriaProducto
-            SET nombre = ?, descripcion = ?, is_active = ?
+            SET nombre = ?, descripcion = ?, estado = ?
             WHERE id_categoria = ?
         `;
         const [result] = await db.execute(query, [nombre, descripcion || null, estado, id]);
