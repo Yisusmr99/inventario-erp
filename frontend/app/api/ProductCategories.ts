@@ -41,9 +41,21 @@ export class ProductCategoriesApi {
     /**
      * Create a new product category
      */
+    /*
     static async create(data: CreateProductCategoryRequest): Promise<ProductCategory> {
         const response = await apiClient.post<ProductCategory>(this.ENDPOINT, data);
         return response.data;
+    }
+    */
+
+    static async create(data: CreateProductCategoryRequest): Promise<ProductCategory> {
+        try {
+            const response = await apiClient.post<ProductCategory>(this.ENDPOINT, data);
+            return response.data;
+        } catch (error: any) {
+            const backendMessage = error?.response?.data?.message || 'Error al crear categoría';
+            throw new Error(backendMessage);
+        }
     }
 
     /**
