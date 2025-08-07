@@ -27,8 +27,8 @@ class ProductCategoryController {
         try {
             const { page = 1, limit = 10, search } = req.query;
             const result = await ProductCategoryService.getAllCategories({ 
-                page: parseInt(page), 
-                limit: parseInt(limit),
+                page: parseInt(page, 10), 
+                limit: parseInt(limit, 10),
                 search: search || null
             });
 
@@ -73,7 +73,8 @@ class ProductCategoryController {
     static async getCategoryById(req, res) {
         try {
             const { id } = req.params;
-            const category = await ProductCategoryService.getCategoryById(id);
+            // CORRECCIÓN: Convierte el ID a un número entero para evitar errores de tipo.
+            const category = await ProductCategoryService.getCategoryById(parseInt(id, 10));
             return ResponseHelper.success(
                 res, 
                 category, 
@@ -94,7 +95,7 @@ class ProductCategoryController {
     static async updateCategory(req, res) {
         try {
             const { id } = req.params;
-            const updateData = { ...req.body, id: parseInt(id) };
+            const updateData = { ...req.body, id: parseInt(id, 10) };
             
             const category = await ProductCategoryService.updateCategory(updateData);
             return ResponseHelper.success(
@@ -117,7 +118,8 @@ class ProductCategoryController {
     static async deleteCategory(req, res) {
         try {
             const { id } = req.params;
-            await ProductCategoryService.deleteCategory(id);
+            // CORRECCIÓN: Convierte el ID a un número entero para evitar errores de tipo.
+            await ProductCategoryService.deleteCategory(parseInt(id, 10));
             return ResponseHelper.success(
                 res, 
                 null, 
