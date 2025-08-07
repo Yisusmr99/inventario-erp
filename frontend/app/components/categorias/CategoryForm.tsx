@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
+//Importing libraries
+import React from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 interface CategoryFormData {
     id?: string
     nombre: string
@@ -61,6 +66,7 @@ export default function CategoryForm({
         return Object.keys(newErrors).length === 0
     }
 
+    /*
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
@@ -78,6 +84,35 @@ export default function CategoryForm({
             setIsSubmitting(false)
         }
     }
+    */
+
+const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        if (!validateForm()) {
+            return
+        }
+
+        setIsSubmitting(true)
+        try {
+            await onSubmit(formData)
+            onClose()
+        } catch (error: any) {
+            console.error('Error al guardar la categoría:', error)
+
+            // Captura mensaje del backend y lo asigna como error en el campo correspondiente
+            const errorMessage = error?.message || 'Error desconocido'
+
+            if (errorMessage.includes('Ya existe')) {
+                setErrors(prev => ({ ...prev, nombre: errorMessage }))
+            } else {
+                toast.error('Ya existe una categoría con ese nombre.');
+            }
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
 
     const handleInputChange = (field: keyof CategoryFormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }))
@@ -188,6 +223,19 @@ export default function CategoryForm({
                                 Cancelar
                             </button>
                         </div>
+                        
+                        <ToastContainer
+                            position="top-right"
+                            autoClose={3000}
+                            hideProgressBar={false}
+                            newestOnTop={false}
+                            closeOnClick
+                            rtl={false}
+                            pauseOnFocusLoss
+                            draggable
+                            pauseOnHover
+                        />
+
                     </DialogPanel>
                 </div>
             </div>
