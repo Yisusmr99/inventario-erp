@@ -27,6 +27,10 @@ app.use(express.json());
 // Middleware global de errores (si se desea implementar)
 // app.use((err, req, res, next) => { ... });
 app.use('/api/test', testRoutes);
+
+// --- CORRECCIÓN FINAL ---
+// Volvemos a la ruta original del backend que el frontend espera.
+// El frontend está llamando a '/api/product-categories'.
 app.use('/api/product-categories', productCategoryRoutes);
 
 module.exports = app;

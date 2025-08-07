@@ -5,6 +5,7 @@ class ProductCategoryModel {
      * Crear una nueva categoría de producto
      */
     static async create({ nombre, descripcion, estado }) {
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
         const query = `
             INSERT INTO CategoriaProducto (nombre, descripcion, estado, fecha_creacion)
             VALUES (?, ?, ?, CURDATE())
@@ -17,11 +18,16 @@ class ProductCategoryModel {
      * Obtener todas las categorías de productos
      */
     static async findAll({ offset = 0, limit = 10, search = null } = {}) {
-        let query = `SELECT * FROM CategoriaProducto`;
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
+        let query = `
+            SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
+            FROM CategoriaProducto
+            WHERE estado = 1
+        `;
         const params = [];
 
         if (search) {
-            query += ` WHERE nombre LIKE ? OR descripcion LIKE ?`;
+            query += ` AND (nombre LIKE ? OR descripcion LIKE ?)`;
             const searchTerm = `%${search}%`;
             params.push(searchTerm, searchTerm);
         }
@@ -37,6 +43,7 @@ class ProductCategoryModel {
      * Obtener una categoría por ID
      */
     static async findById(id) {
+        // Usa las columnas correctas: 'estado' y 'fecha_creacion'
         const query = `
             SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
             FROM CategoriaProducto
@@ -50,6 +57,7 @@ class ProductCategoryModel {
      * Actualizar una categoría de producto
      */
     static async update(id, { nombre, descripcion, estado }) {
+        // Usa la columna correcta: 'estado'
         const query = `
             UPDATE CategoriaProducto
             SET nombre = ?, descripcion = ?, estado = ?
