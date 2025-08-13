@@ -1,3 +1,11 @@
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+
+
+
 const request = require('supertest');
 const app = require('../app');
 
