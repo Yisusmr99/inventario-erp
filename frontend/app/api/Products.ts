@@ -18,22 +18,22 @@ export const ProductsApi = {
     if (typeof params.categoriaId === 'number') q.set('categoryId', String(params.categoriaId));
     if (params.codigo) q.set('codigo', params.codigo);
 
-    const endpoint = `/api/products${q.toString() ? `?${q.toString()}` : ''}`;
+    const endpoint = `/products${q.toString() ? `?${q.toString()}` : ''}`;
     const { data } = await apiClient.get<ProductsPaginationData>(endpoint);
     return data;
   },
 
   async create(payload: Partial<ProductApi>): Promise<ProductApi> {
-    const { data } = await apiClient.post<ProductApi>('/api/products', payload);
+    const { data } = await apiClient.post<ProductApi>('/products', payload);
     return data;
   },
 
   async update(id: number, payload: Partial<ProductApi>): Promise<ProductApi> {
-    const { data } = await apiClient.put<ProductApi>(`/api/products/${id}`, payload);
+    const { data } = await apiClient.put<ProductApi>(`/products/${id}`, payload);
     return data;
   },
 
   async delete(id: number): Promise<void> {
-    await apiClient.delete(`/api/products/${id}`);
+    await apiClient.delete(`/products/${id}`);
   }
 };
