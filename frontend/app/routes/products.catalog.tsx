@@ -1,4 +1,6 @@
+// frontend/app/routes/products.catalog.tsx
 import AppLayout from "../components/layout/AppLayout";
+import ProductsTable from "../components/productos/ProductsTable";
 
 export function meta() {
     return [
@@ -9,22 +11,21 @@ export function meta() {
 
 export default function ProductCatalog() {
     return (
-        <AppLayout pageTitle="Catálogo">
+        <AppLayout pageTitle="Catálogo de Productos">
             <div className="space-y-6">
+                {/* Encabezado */}
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Catálogo de Productos</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">
+                        Catálogo de Productos
+                    </h1>
                     <p className="mt-2 text-sm text-gray-700">
-                        Administra el catálogo completo de productos
+                        Administra el catálogo completo de productos del sistema.
                     </p>
                 </div>
 
-                {/* Área de contenido principal */}
-                <div className="bg-white shadow rounded-lg p-6">
-                    <h2 className="text-lg font-medium text-gray-900 mb-4">Lista de productos</h2>
-                    <p className="text-gray-600">
-                        Aquí se mostrará la gestión del catálogo de productos.
-                        Puedes agregar, editar y eliminar productos del sistema.
-                    </p>
+                {/* Contenedor de la tabla */}
+                <div className="bg-white shadow-sm rounded-lg">
+                    <ProductsTable />
                 </div>
             </div>
         </AppLayout>
