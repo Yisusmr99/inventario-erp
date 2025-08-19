@@ -1,36 +1,29 @@
-const express = require('express');
-const cors = require('cors');
-const app = express();
+// backend/src/app.js
+const express = require('express')
+const cors = require('cors')
+const app = express()
 
-// Importar rutas aquí cuando estén disponibles
-const testRoutes = require('./routes/testRoutes');
-const productCategoryRoutes = require('./routes/productCategoryRoutes');
+const testRoutes = require('./routes/testRoutes')
+const productCategoryRoutes = require('./routes/productCategoryRoutes')
+const productRoutes = require('./routes/productRoutes') // <= AÑADIDO
 
-// CORS configuration
 const corsOptions = {
-    origin: [
-        'http://localhost:5173', // Default Vite port
-        'http://localhost:5174', // Alternative Vite port
-        'https://inventario-erp.up.railway.app',
-        'https://api-inventario.up.railway.app' // Add your API domain if needed
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
-    credentials: true
-};
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://inventario-erp.up.railway.app',
+    'https://api-inventario.up.railway.app'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+  credentials: true
+} // <= ¡Quité la x!
 
-// Apply CORS middleware
-app.use(cors(corsOptions));
+app.use(cors(corsOptions))
+app.use(express.json())
 
-app.use(express.json());
+app.use('/api/test', testRoutes)
+app.use('/api/product-categories', productCategoryRoutes)
+app.use('/api/products', productRoutes) // <= AÑADIDO
 
-// Middleware global de errores (si se desea implementar)
-// app.use((err, req, res, next) => { ... });
-app.use('/api/test', testRoutes);
-
-// --- CORRECCIÓN FINAL ---
-// Volvemos a la ruta original del backend que el frontend espera.
-// El frontend está llamando a '/api/product-categories'.
-app.use('/api/product-categories', productCategoryRoutes);
-
-module.exports = app;
+module.exports = app
