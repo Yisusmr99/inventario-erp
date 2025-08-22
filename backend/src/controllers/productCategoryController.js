@@ -5,20 +5,27 @@ class ProductCategoryController {
     /**
      * Crear una nueva categoría de producto
      */
+
     static async createCategory(req, res) {
-        try {
-            const category = await ProductCategoryService.createCategory(req.body);
-            return ResponseHelper.success(
-                res, 
-                category, 
-                'Categoría creada exitosamente', 
-                201
-            );
-        } catch (error) {
-            console.error('Error al crear categoría:', error);
-            return ResponseHelper.validationError(res, error.message);
+    try {
+        // Normalizar el nombre quitando espacios al inicio y final
+        if (req.body.name && typeof req.body.name === 'string') {
+            req.body.name = req.body.name.trim();
         }
+
+        const category = await ProductCategoryService.createCategory(req.body);
+
+        return ResponseHelper.success(
+            res, 
+            category, 
+            'Categoría creada exitosamente', 
+            201
+        );
+    } catch (error) {
+        console.error('Error al crear categoría:', error);
+        return ResponseHelper.validationError(res, error.message);
     }
+}
 
     /**
      * Obtener todas las categorías

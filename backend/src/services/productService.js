@@ -1,80 +1,122 @@
-// src/services/productService.js
-const ProductModel = require('../models/productModel');
-const { CreateProductDto, UpdateProductDto } = require('../dtos/products.dto');
+const ProductModel = require('../models/ProductModel');
+const ProductCategory = require('../models/productCategoryModel'); // <-- Tu modelo personalizado
 
 class ProductService {
-  static async createProduct(data) {
-    const validated = CreateProductDto.validate(data);
-    const duplicate = await ProductModel.existsByName(validated.nombre);
-    if (duplicate) throw new Error('Ya existe un producto con este nombre');
+    static async createProduct(productData) {
+        if (!productData.nombre) {
+            throw new Error('El nombre es obligatorio.');
+        }
+        if (!productData.codigo) {
+            throw new Error('El código es obligatorio.');
+        }
+        if (!productData.precio) {
+            throw new Error('El precio es obligatorio.');
+        }
+        if (!productData.categoriaId) {
+            throw new Error('La categoría es obligatoria.');
+        }
 
-    const id = await ProductModel.create(validated);
-    return await ProductModel.findById(id);
-  }
+        const nameExists = await ProductModel.existsByName(productData.nombre);
+        if (nameExists) {
+            throw new Error('Ya existe un producto con este nombre.');
+        }
 
-  static async getAllProducts({ page = 1, limit = 10, nombre, categoriaId, codigo } = {}) {
-    const total = await ProductModel.count({ nombre, categoriaId, codigo });
-    const totalPages = Math.ceil(total / limit) || 0;
-    const safePage = Math.min(Math.max(1, page), Math.max(1, totalPages));
-    const offset = (safePage - 1) * limit;
+        const codeExists = await ProductModel.existsByCode(productData.codigo);
+        if (codeExists) {
+            throw new Error('Ya existe un producto con este código.');
+        }
 
-    if (total === 0) {
-      return {
-        products: [],
-        totalProducts: 0,
-        totalPages: 0,
-        currentPage: safePage,
-        hasNextPage: false,
-        hasPreviousPage: false,
-      };
+        // CORRECCIÓN: Usar findById en lugar de findByPk
+        const categoryExists = await ProductCategory.findById(productData.categoriaId);
+        if (!categoryExists) {
+            const error = new Error('La categoría especificada no existe.');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const newProductId = await ProductModel.create(productData);
+        return await this.getProductById(newProductId);
     }
 
-    const products = await ProductModel.findAll({
-      offset,
-      limit,
-      nombre,
-      categoriaId,
-      codigo,
-    });
+    static async getAllProducts({ page, limit, nombre, categoriaId, codigo }) {
+        const offset = (page - 1) * limit;
 
-    return {
-      products,
-      totalProducts: total,
-      totalPages,
-      currentPage: safePage,
-      hasNextPage: safePage < totalPages,
-      hasPreviousPage: safePage > 1,
-    };
-  }
+        const products = await ProductModel.findAll({ offset, limit, nombre, categoriaId, codigo });
+        const totalItems = await ProductModel.count({ nombre, categoriaId, codigo });
 
-  static async getProductById(id) {
-    const product = await ProductModel.findById(id);
-    if (!product) throw new Error('Producto no encontrado');
-    return product;
-  }
+        const totalPages = Math.ceil(totalItems / limit);
+        return {
+            products: products.map(p => ({
+                id: p.id_producto,
+                name: p.nombre,
+                description: p.descripcion,
+                categoriaId: p.id_categoria,
+                categoriaNombre: p.categoria_nombre,
+                code: p.codigo,
+                price: p.precio,
+            })),
+            totalItems,
+            totalPages,
+            currentPage: page,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1
+        };
+    }
 
-  static async updateProduct(data) {
-    const validated = UpdateProductDto.validate(data);
-    const existing = await ProductModel.findById(validated.id);
-    if (!existing) throw new Error('Producto no encontrado');
+    static async getProductById(id) {
+        const product = await ProductModel.findById(id);
+        if (!product) {
+            const error = new Error('Producto no encontrado');
+            error.statusCode = 404;
+            throw error;
+        }
+        return {
+            id: product.id_producto,
+            name: product.nombre,
+            description: product.descripcion,
+            categoriaId: product.id_categoria,
+            categoriaNombre: product.categoria_nombre,
+            code: product.codigo,
+            price: product.precio
+        };
+    }
 
-    const duplicate = await ProductModel.existsByName(validated.nombre, validated.id);
-    if (duplicate) throw new Error('Ya existe otro producto con este nombre');
+    static async updateProduct(id, productData) {
+        const existingProduct = await ProductModel.findById(id);
+        if (!existingProduct) {
+            throw new Error('Producto no encontrado.');
+        }
 
-    const ok = await ProductModel.update(validated.id, validated);
-    if (!ok) throw new Error('No se pudo actualizar el producto');
+        if (productData.nombre && await ProductModel.existsByName(productData.nombre, id)) {
+            throw new Error('Ya existe un producto con este nombre.');
+        }
 
-    return await ProductModel.findById(validated.id);
-  }
+        if (productData.codigo && await ProductModel.existsByCode(productData.codigo, id)) {
+            throw new Error('Ya existe un producto con este código.');
+        }
 
-  static async deleteProduct(id) {
-    const existing = await ProductModel.findById(id);
-    if (!existing) throw new Error('Producto no encontrado');
+        const success = await ProductModel.update(id, productData);
+        if (success) {
+            const updatedProduct = await ProductModel.findById(id);
+            return {
+                id: updatedProduct.id_producto,
+                name: updatedProduct.nombre,
+                description: updatedProduct.descripcion,
+                categoriaId: updatedProduct.id_categoria,
+                categoriaNombre: updatedProduct.categoria_nombre,
+                code: updatedProduct.codigo,
+                price: updatedProduct.precio
+            };
+        }
+        return null;
+    }
 
-    const ok = await ProductModel.delete(id);
-    if (!ok) throw new Error('No se pudo eliminar el producto');
-    return true;
-  }
+    static async deleteProduct(id) {
+        const success = await ProductModel.delete(id);
+        if (!success) {
+            throw new Error('Producto no encontrado o ya fue eliminado.');
+        }
+    }
 }
 
 module.exports = ProductService;
