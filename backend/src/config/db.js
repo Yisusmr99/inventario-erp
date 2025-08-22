@@ -1,36 +1,32 @@
+// Ruta: src/config/db.js
+
 const mysql = require('mysql2/promise');
 
 console.log('Connecting to the database...');
-require('dotenv').config();
 
+// La configuración está más limpia y lee las variables que ya cargó Server.js
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    acquireTimeout: 60000,
-    timeout: 60000,
-    reconnect: true,
-    ssl: {
+    ssl: { // <-- ¡Muy bien! Mantenemos esto para la conexión a Railway.
         rejectUnauthorized: false
     }
 });
 
-// Test the connection
-async function testConnection() {
-    try {
-        const connection = await pool.getConnection();
-        console.log('Database connected successfully');
-        connection.release();
-    } catch (error) {
-        console.error('Database connection failed:', error.message);
-    }
-}
-
-testConnection();
+// Probamos la conexión para confirmar que todo funciona al arrancar.
+pool.getConnection()
+  .then(connection => {
+    console.log('✅ Database connection successful!');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('❌ Database connection failed:', err.message);
+  });
 
 module.exports = pool;

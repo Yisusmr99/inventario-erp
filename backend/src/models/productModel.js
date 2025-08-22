@@ -1,4 +1,3 @@
-// src/models/productModel.js
 const db = require('../config/db');
 
 class ProductModel {
@@ -13,8 +12,19 @@ class ProductModel {
   }
 
   static async existsByName(nombre, excludeId = null) {
-    let sql = `SELECT id_producto FROM Producto WHERE nombre = ?`;
+    let sql = `SELECT id_producto FROM Producto WHERE nombre = ? AND estado = 1`;
     const params = [nombre];
+    if (excludeId) {
+      sql += ` AND id_producto <> ?`;
+      params.push(excludeId);
+    }
+    const [rows] = await db.execute(sql, params);
+    return rows.length > 0;
+  }
+
+  static async existsByCode(codigo, excludeId = null) {
+    let sql = `SELECT id_producto FROM Producto WHERE codigo = ? AND estado = 1`;
+    const params = [codigo];
     if (excludeId) {
       sql += ` AND id_producto <> ?`;
       params.push(excludeId);
@@ -27,7 +37,7 @@ class ProductModel {
     let sql = `
       SELECT COUNT(*) AS total
       FROM Producto p
-      WHERE 1=1
+      WHERE p.estado = 1
     `;
     const params = [];
     if (nombre) {
@@ -49,11 +59,11 @@ class ProductModel {
   static async findAll({ offset = 0, limit = 10, nombre, categoriaId, codigo } = {}) {
     let sql = `
       SELECT 
-        p.id_producto, p.nombre, p.descripcion, p.id_categoria, p.codigo, p.precio, p.fecha_creacion,
+        p.id_producto, p.nombre, p.descripcion, p.id_categoria, p.codigo, p.precio,
         c.nombre AS categoria_nombre
       FROM Producto p
       LEFT JOIN CategoriaProducto c ON c.id_categoria = p.id_categoria
-      WHERE 1=1
+      WHERE p.estado = 1
     `;
     const params = [];
     if (nombre) {
@@ -78,11 +88,11 @@ class ProductModel {
   static async findById(id) {
     const sql = `
       SELECT 
-        p.id_producto, p.nombre, p.descripcion, p.id_categoria, p.codigo, p.precio, p.fecha_creacion,
+        p.id_producto, p.nombre, p.descripcion, p.id_categoria, p.codigo, p.precio,
         c.nombre AS categoria_nombre
       FROM Producto p
       LEFT JOIN CategoriaProducto c ON c.id_categoria = p.id_categoria
-      WHERE p.id_producto = ?
+      WHERE p.id_producto = ? AND p.estado = 1
     `;
     const [rows] = await db.execute(sql, [id]);
     return rows[0] || null;
@@ -99,8 +109,9 @@ class ProductModel {
     return result.affectedRows > 0;
   }
 
+  // FUNCION CORREGIDA: Ahora es una "eliminación suave" (soft-delete)
   static async delete(id) {
-    const sql = `DELETE FROM Producto WHERE id_producto = ?`;
+    const sql = `UPDATE Producto SET estado = 0 WHERE id_producto = ?`;
     const [result] = await db.execute(sql, [id]);
     return result.affectedRows > 0;
   }
