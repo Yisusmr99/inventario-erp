@@ -1,4 +1,4 @@
-const ProductModel = require('../models/ProductModel');
+const ProductModel = require('../models/productModel');
 const ProductCategory = require('../models/productCategoryModel'); // <-- Tu modelo personalizado
 
 class ProductService {
