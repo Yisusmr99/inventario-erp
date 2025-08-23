@@ -1,10 +1,38 @@
 const db = require('../config/db');
 
 class ProductModel {
+
   static async create({ nombre, descripcion, categoriaId, codigo, precio }) {
+  // 1) Buscar si ya existe ese código (activo o inactivo)
+    const [rows] = await db.execute(
+      'SELECT id_producto, estado FROM Producto WHERE codigo = ? LIMIT 1',
+      [codigo]
+      );
+
+    if (rows.length > 0) {
+      const { id_producto, estado } = rows[0];
+
+      // 2) Si existe y está INACTIVO -> reactivar y actualizar datos
+      if (estado === 0) {
+        await db.execute(
+          `UPDATE Producto
+          SET nombre = ?, descripcion = ?, id_categoria = ?, precio = ?, estado = 1
+          WHERE id_producto = ?`,
+          [nombre, descripcion || null, categoriaId, precio, id_producto]
+        );
+        return id_producto; // devolvés el mismo id reactivado
+      }
+
+      // 3) Si existe y está ACTIVO -> conflicto
+      const err = new Error('Ya existe un producto activo con ese código');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // 4) Caso normal: crear nuevo
     const sql = `
-      INSERT INTO Producto (nombre, descripcion, id_categoria, codigo, precio, fecha_creacion)
-      VALUES (?, ?, ?, ?, ?, CURDATE())
+      INSERT INTO Producto (nombre, descripcion, id_categoria, codigo, precio)
+      VALUES (?, ?, ?, ?, ?)
     `;
     const params = [nombre, descripcion || null, categoriaId, codigo, precio];
     const [result] = await db.execute(sql, params);
