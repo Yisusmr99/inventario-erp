@@ -115,6 +115,20 @@ export default function App() {
         checkLoginIframe: false,
         ...(silentSSO && { silentCheckSsoRedirectUri: silentSSO }),
       }}
+      onEvent={(event, error) => {
+        // Útil para ver el ciclo de vida: onAuthSuccess, onTokenExpired, onAuthRefreshSuccess, etc.
+        // if (import.meta.env.DEV) console.log('KC event:', event, error);
+        console.log('Keycloak event:', event, error);
+      }}
+      onTokens={({ token, idToken, refreshToken }) => {
+        if (import.meta.env.DEV) {
+          console.log('KC tokens:', { token, idToken, refreshToken });
+        }
+        // (Opcional) Persistencia temporal en sessionStorage:
+        if (token) sessionStorage.setItem('kc_token', token);
+        if (refreshToken) sessionStorage.setItem('kc_refreshToken', refreshToken);
+        if (idToken) sessionStorage.setItem('kc_idToken', idToken);
+      }}
     >
       <AuthGate>
         <Outlet />
