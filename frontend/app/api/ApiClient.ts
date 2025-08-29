@@ -1,3 +1,5 @@
+// app/api/ApiClient.ts
+
 interface ApiResponse<T = any> {
     success: boolean;
     status: number;
@@ -39,23 +41,32 @@ class ApiClient {
             const response = await fetch(url, defaultConfig);
             clearTimeout(timeoutId);
 
+            // --- CORRECCIÓN APLICADA AQUÍ ---
+            // Se intenta leer el cuerpo de la respuesta (JSON) sin importar si fue exitosa o no.
+            // Esto nos permite capturar los mensajes de error específicos del backend.
+            const responseBody = await response.json();
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                // Si la respuesta no es exitosa, lanzamos un error usando el mensaje del backend.
+                // Si no hay mensaje, usamos uno genérico.
+                throw new Error(responseBody.message || `HTTP error! status: ${response.status}`);
             }
 
-            const data: ApiResponse<T> = await response.json();
-            return data;
+            // Si la respuesta fue exitosa, la devolvemos como antes.
+            return responseBody;
+
         } catch (error) {
             clearTimeout(timeoutId);
 
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
-                    throw new Error('Request timeout');
+                    throw new Error('La solicitud tardó demasiado en responder.');
                 }
+                // Re-lanzamos el error (que ahora puede contener el mensaje del backend).
                 throw error;
             }
 
-            throw new Error('Network error occurred');
+            throw new Error('Ocurrió un error de red.');
         }
     }
 
@@ -92,6 +103,6 @@ class ApiClient {
     }
 }
 
-// Create and export a singleton instance
+// Se crea y exporta una única instancia para ser usada en toda la aplicación.
 export const apiClient = new ApiClient();
 export default ApiClient;

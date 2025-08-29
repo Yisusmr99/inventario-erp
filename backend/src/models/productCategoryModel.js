@@ -1,11 +1,17 @@
+// backend/src/models/productCategoryModel.js
+
 const db = require('../config/db');
 
 class ProductCategoryModel {
-  /**
-   * Crear una nueva categoría de producto
-   */
   static async create({ nombre, descripcion, estado }) {
-    // CHANGED: normaliza en SQL (TRIM) y deja la comparación futura consistente
+    // VALIDACIÓN: Se añade una validación robusta para prevenir duplicados.
+    const alreadyExists = await this.existsByName(nombre);
+    if (alreadyExists) {
+      const err = new Error('Ya existe una categoría con un nombre similar.');
+      err.statusCode = 409; // 409 Conflict
+      throw err;
+    }
+
     const query = `
       INSERT INTO CategoriaProducto (nombre, descripcion, estado, fecha_creacion)
       VALUES (TRIM(?), ?, ?, CURDATE())
@@ -14,9 +20,6 @@ class ProductCategoryModel {
     return result.insertId;
   }
 
-  /**
-   * Obtener todas las categorías de productos
-   */
   static async findAll({ offset = 0, limit = 10, search = null } = {}) {
     let query = `
       SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
@@ -26,8 +29,7 @@ class ProductCategoryModel {
     const params = [];
 
     if (search) {
-      // Opcional: buscar por término sin tocar espacios internos
-      query += ` AND (nombre LIKE ? OR descripcion LIKE ?)`;
+      query += ` AND (LOWER(nombre) LIKE LOWER(?) OR LOWER(descripcion) LIKE LOWER(?))`;
       const searchTerm = `%${search}%`;
       params.push(searchTerm, searchTerm);
     }
@@ -39,9 +41,6 @@ class ProductCategoryModel {
     return rows;
   }
 
-  /**
-   * Obtener una categoría por ID
-   */
   static async findById(id) {
     const query = `
       SELECT id_categoria, nombre, descripcion, estado, fecha_creacion
@@ -52,11 +51,15 @@ class ProductCategoryModel {
     return rows[0] || null;
   }
 
-  /**
-   * Actualizar una categoría de producto
-   */
   static async update(id, { nombre, descripcion, estado }) {
-    // CHANGED: TRIM al guardar
+    // VALIDACIÓN: Se añade una validación para prevenir duplicados al actualizar.
+    const alreadyExists = await this.existsByName(nombre, id); // Excluir el ID actual de la comprobación
+    if (alreadyExists) {
+      const err = new Error('Ya existe otra categoría con un nombre similar.');
+      err.statusCode = 409; // 409 Conflict
+      throw err;
+    }
+
     const query = `
       UPDATE CategoriaProducto
       SET nombre = TRIM(?), descripcion = ?, estado = ?
@@ -66,24 +69,19 @@ class ProductCategoryModel {
     return result.affectedRows > 0;
   }
 
-  /**
-   * Eliminar una categoría de producto
-   */
   static async delete(id) {
     const query = `DELETE FROM CategoriaProducto WHERE id_categoria = ?`;
     const [result] = await db.execute(query, [id]);
     return result.affectedRows > 0;
   }
 
-  /**
-   * Verificar si existe una categoría con el mismo nombre
-   * - CHANGED: compara nombre normalizado (TRIM + LOWER) y permite excluir ID
-   */
+  // --- FUNCIÓN CORREGIDA ---
+  // Ahora normaliza el nombre quitando TODOS los espacios y convirtiendo a minúsculas.
   static async existsByName(nombre, excludeId = null) {
     let query = `
       SELECT id_categoria
       FROM CategoriaProducto
-      WHERE TRIM(LOWER(nombre)) = TRIM(LOWER(?))
+      WHERE REPLACE(LOWER(nombre), ' ', '') = REPLACE(LOWER(?), ' ', '')
     `;
     const params = [nombre];
 
@@ -96,15 +94,12 @@ class ProductCategoryModel {
     return rows.length > 0;
   }
 
-  /**
-   * Contar el número total de categorías de producto
-   */
   static async count(search = null) {
-    let query = `SELECT COUNT(*) AS total FROM CategoriaProducto`;
+    let query = `SELECT COUNT(*) AS total FROM CategoriaProducto WHERE estado = 1`;
     const params = [];
 
     if (search) {
-      query += ` WHERE nombre LIKE ? OR descripcion LIKE ?`;
+      query += ` AND (LOWER(nombre) LIKE LOWER(?) OR LOWER(descripcion) LIKE LOWER(?))`;
       const searchTerm = `%${search}%`;
       params.push(searchTerm, searchTerm);
     }

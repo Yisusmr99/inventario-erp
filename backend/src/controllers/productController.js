@@ -1,25 +1,9 @@
-const ProductService = require('../services/productService');
-const ResponseHelper = require('../utils/responseHelper');
+// backend/src/controllers/productController.js
 
-// Esta función ya no es necesaria, el mapeo se hace en el servicio.
-// Mantendremos la lógica de mapeo solo en el servicio.
-/*
-const mapProductForFrontend = (product) => {
-    if (!product) return null;
-    const mappedProduct = {
-        id: product.id_producto,
-        name: product.nombre,
-        description: product.descripcion,
-        code: product.codigo,
-        price: product.precio,
-        categoriaId: product.id_categoria,
-        categoriaNombre: product.categoria_nombre,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-    };
-    return mappedProduct;
-};
-*/
+const ProductService = require('../services/productService');
+// Se necesita el servicio de categorías para verificar si la categoría existe
+const ProductCategoryService = require('../services/productCategoryService'); 
+const ResponseHelper = require('../utils/responseHelper');
 
 class ProductController {
     static async createProduct(req, res) {
@@ -48,9 +32,19 @@ class ProductController {
         }
     }
 
+    // --- FUNCIÓN CORREGIDA ---
     static async getAllProducts(req, res) {
         try {
             const { page = 1, limit = 10, search, categoryId, code } = req.query;
+
+            // VALIDACIÓN AÑADIDA: Si se pasa un categoryId, se verifica que exista.
+            if (categoryId) {
+                const categoryExists = await ProductCategoryService.getCategoryById(parseInt(categoryId, 10));
+                if (!categoryExists) {
+                    // Si la categoría no existe, se devuelve un 404.
+                    return ResponseHelper.notFound(res, `La categoría con ID ${categoryId} no existe.`);
+                }
+            }
 
             const result = await ProductService.getAllProducts({
                 page: parseInt(page, 10),
@@ -60,7 +54,6 @@ class ProductController {
                 codigo: code || null,
             });
 
-            // No es necesario un segundo mapeo, el servicio ya lo hace.
             const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
             const buildUrl = (pageNum) => {
                 const params = new URLSearchParams();
@@ -73,7 +66,7 @@ class ProductController {
             };
 
             const response = {
-                products: result.products, // Se usa la respuesta ya mapeada del servicio
+                products: result.products,
                 totalItems: result.totalItems,
                 totalPages: result.totalPages,
                 currentPage: result.currentPage,
@@ -94,6 +87,12 @@ class ProductController {
         try {
             const { id } = req.params;
             const product = await ProductService.getProductById(parseInt(id, 10));
+
+            if (!product) {
+                // CORRECCIÓN: Se añade un mensaje más específico.
+                return ResponseHelper.notFound(res, `El producto con ID ${id} no existe.`);
+            }
+
             return ResponseHelper.success(res, product, 'Producto obtenido exitosamente');
         } catch (error) {
             console.error('Error al obtener producto:', error);
@@ -135,10 +134,10 @@ class ProductController {
         try {
             const { id } = req.params;
             await ProductService.deleteProduct(parseInt(id, 10));
-            return ResponseHelper.success(res, null, 'Producto eliminado exitosamente');
+            return ResponseHelper.success(res, null, 'Producto eliminado exitosamente', 204);
         } catch (error) {
             console.error('Error al eliminar producto:', error);
-            if (error.message === 'Producto no encontrado o ya fue eliminado.') {
+            if (error.statusCode === 404) {
                 return ResponseHelper.notFound(res, error.message);
             }
             return ResponseHelper.error(res, 'Error al eliminar el producto');

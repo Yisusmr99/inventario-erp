@@ -1,5 +1,8 @@
-import AppLayout from "../components/layout/AppLayout";
-import CategoriesTable from "../components/categorias/CategoriesTable";
+// app/routes/products.categories.tsx
+
+import AppLayout from '../components/layout/AppLayout';
+// CORRECCIÓN: Se importa el componente de la tabla de categorías que creaste.
+import CategoriesTable from '../components/categorias/CategoriesTable';
 
 export function meta() {
     return [
@@ -11,9 +14,9 @@ export function meta() {
 export default function ProductCategories() {
     return (
         <AppLayout pageTitle="Categorías">
-            <div className="space-y-8">
-                <CategoriesTable />
-            </div>
+            {/* El componente CategoriesTable ya tiene su propio encabezado y estructura,
+                así que podemos colocarlo directamente aquí. */}
+            <CategoriesTable />
         </AppLayout>
     );
 }

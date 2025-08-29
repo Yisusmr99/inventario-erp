@@ -1,695 +1,414 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ProductsApi } from '../../api/Products';
-import { ProductCategoriesApi } from '../../api/ProductCategories';
-import type { Product } from '../../types/Products';
+'use client';
 
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { ProductsApi } from '../../api/Products';
+import { ProductCategoriesApi } from '../../api/ProductCategories'; 
+import type { Product } from '../../types/Products';
+import { toast } from 'sonner';
+
+// --- Tipos y Constantes ---
 type FetchState = {
   loading: boolean;
   error: string | null;
 };
-
 type CategoryOption = { id: number; nombre: string };
-
 const DEFAULT_PAGE_SIZE = 8;
 
-/**
- * Genera un rango paginado tipo: 1 ... 4 5 6 ... 20
- */
+// --- Hooks de Utilidad ---
 function usePageNumbers(current: number, total: number, delta = 1) {
   return useMemo(() => {
-    if (total <= 1) return [1];
-
+    if (total <= 1) return [];
     const pages: (number | 'dots')[] = [];
     const left = Math.max(2, current - delta);
     const right = Math.min(total - 1, current + delta);
 
     pages.push(1);
     if (left > 2) pages.push('dots');
-
-    for (let p = left; p <= right; p++) {
-      pages.push(p);
-    }
-
+    for (let p = left; p <= right; p++) pages.push(p);
     if (right < total - 1) pages.push('dots');
-    pages.push(total);
+    if (total > 1) pages.push(total);
 
-    return pages;
+    return pages.filter((p, i, arr) => p !== 'dots' || (p === 'dots' && arr[i - 1] !== 'dots'));
   }, [current, total, delta]);
 }
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// --- Componente Principal ---
 export default function ProductsTable() {
+  // --- Estados ---
   const [items, setItems] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
-  const [limit] = useState(DEFAULT_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(0);
-  const [state, setState] = useState<FetchState>({ loading: false, error: null });
+  const [state, setState] = useState<FetchState>({ loading: true, error: null });
 
-  // Filtros
-  const [search, setSearch] = useState<string>('');
-  const [code, setCode] = useState<string>('');
-
-  // FILTRO: categoría con autocomplete
+  const [searchByName, setSearchByName] = useState('');
+  const [searchByCode, setSearchByCode] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
-  const [categoryName, setCategoryName] = useState<string>('');
+  const [categoryFilterName, setCategoryFilterName] = useState('');
   const [catFilterSuggestions, setCatFilterSuggestions] = useState<CategoryOption[]>([]);
   const [showCatFilterSug, setShowCatFilterSug] = useState(false);
-  const catFilterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catFilterDebounce = useRef<NodeJS.Timeout>();
 
-  // Debounce
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const [debouncedCode, setDebouncedCode] = useState(code);
+  const debouncedName = useDebounce(searchByName, 300);
+  const debouncedCode = useDebounce(searchByCode, 300);
 
-  // Modal crear
-  const [openCreate, setOpenCreate] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    code: '',
-    price: '' as string | number,
-    categoriaId: '' as string | number,
-    categoriaNombre: '', // para el autocomplete visible
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
+  const [formState, setFormState] = useState<{
+    data: Partial<Product>; error: string | null; isSaving: boolean; catName: string;
+    catSuggestions: CategoryOption[]; showCatSuggestions: boolean;
+  }>({
+    data: {}, error: null, isSaving: false, catName: '', catSuggestions: [], showCatSuggestions: false,
   });
-  const [formError, setFormError] = useState<string | null>(null);
+  const formDebounce = useRef<NodeJS.Timeout>();
 
-  // Autocomplete en crear
-  const [createCatSuggestions, setCreateCatSuggestions] = useState<CategoryOption[]>([]);
-  const [showCreateCatSug, setShowCreateCatSug] = useState(false);
-  const createDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isModalOpen = !!editingProduct || formState.data.id === 'new';
 
-  // Modal editar
-  const [openEdit, setOpenEdit] = useState(false);
-  const [editForm, setEditForm] = useState<Product | null>(null);
-  const [editCatName, setEditCatName] = useState<string>(''); // visible
-  const [editCatSuggestions, setEditCatSuggestions] = useState<CategoryOption[]>([]);
-  const [showEditCatSug, setShowEditCatSug] = useState(false);
-  const editDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // --- Carga de Datos ---
+  const queryParams = useMemo(() => ({
+    page,
+    limit: DEFAULT_PAGE_SIZE,
+    search: debouncedName || undefined,
+    codigo: debouncedCode || undefined,
+    categoriaId: categoryId,
+  }), [page, debouncedName, debouncedCode, categoryId]);
 
-  // Búsqueda de categorías
-  async function searchCategories(query: string) {
+  const loadProducts = useCallback(async () => {
+    setState({ loading: true, error: null });
     try {
-      const res = await ProductCategoriesApi.getAllWithPagination({
-        page: 1,
-        limit: 10,
-        search: query,
-      });
-      const opts: CategoryOption[] = (res?.categories || []).map((c: any) => ({
-        id: c.id_categoria,
-        nombre: c.nombre,
-      }));
-      return opts;
-    } catch {
-      return [];
-    }
-  }
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedCode(code), 300);
-    return () => clearTimeout(t);
-  }, [code]);
-
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit,
-      search: debouncedSearch || undefined,
-      code: debouncedCode || undefined,
-      categoryId, // el backend sigue recibiendo ID
-    }),
-    [page, limit, debouncedSearch, debouncedCode, categoryId],
-  );
-
-  const load = async () => {
-    try {
-      setState({ loading: true, error: null });
       const data = await ProductsApi.getAllWithPagination(queryParams);
       setItems(data.products);
       setTotalPages(data.totalPages);
     } catch (err: any) {
-      setState({
-        loading: false,
-        error: err?.message || 'Error al cargar productos',
-      });
-      return;
+      const errorMessage = err?.message || 'Error al cargar productos';
+      setState({ loading: false, error: errorMessage });
+      toast.error(errorMessage);
+    } finally {
+      setState(s => ({ ...s, loading: false }));
     }
-    setState({ loading: false, error: null });
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryParams]);
 
-  const onPrev = () => setPage((p) => Math.max(1, p - 1));
-  const onNext = () => setPage((p) => Math.min(totalPages || 1, p + 1));
-  const onGo = (p: number) => setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)));
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   const pageNumbers = usePageNumbers(page, totalPages, 1);
+  const goToPage = (p: number) => setPage(Math.min(Math.max(1, p), Math.max(1, totalPages)));
 
-  // -------- Funciones CRUD ----------
-
-  // Abrir modal editar
-  const openEditModal = async (id: number) => {
+  const searchCategories = async (query: string): Promise<CategoryOption[]> => {
     try {
-      setState((s) => ({ ...s, loading: true }));
-      const data = await ProductsApi.getById(id);
-      setEditForm(data);
-      // precargar nombre de categoría si viene
-      // @ts-ignore por si tu tipo Product no lo define
-      const nombreCat = (data as any).categoriaNombre ?? '';
-      setEditCatName(nombreCat);
-      setOpenEdit(true);
-    } catch (err: any) {
-      alert(`Error al cargar los datos del producto: ${err?.message}`);
-    } finally {
-      setState((s) => ({ ...s, loading: false }));
+      const res = await ProductCategoriesApi.getAllWithPagination({ page: 1, limit: 10, search: query });
+      return (res?.categories || []).map((c: any) => ({ id: c.id_categoria, nombre: c.nombre }));
+    } catch {
+      toast.error('No se pudieron buscar las categorías.');
+      return [];
     }
   };
 
-  const closeEditModal = () => {
-    setOpenEdit(false);
-    setEditForm(null);
-    setEditCatName('');
-    setEditCatSuggestions([]);
-    setShowEditCatSug(false);
+  const handleFilterReset = () => {
+    setSearchByName('');
+    setSearchByCode('');
+    setCategoryId(undefined);
+    setCategoryFilterName('');
+    setPage(1);
   };
-
-  const handleEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!editForm) return;
-
-    if (!String(editForm.name || '').trim()) return setFormError('El nombre es obligatorio.');
-    if (!String(editForm.code || '').trim()) return setFormError('El código es obligatorio.');
-    const priceNum = Number((editForm as any).price);
-    if (!Number.isFinite(priceNum) || priceNum < 0) {
-      return setFormError('El precio debe ser un número válido y no negativo.');
-    }
-    const categoriaNum = Number((editForm as any).categoriaId);
-    if (!Number.isInteger(categoriaNum) || categoriaNum <= 0) {
-      return setFormError('La categoría es obligatoria (seleccioná una de la lista).');
-    }
-
-    try {
-      setSaving(true);
-      await ProductsApi.update(Number((editForm as any).id), {
-        ...editForm,
-        price: priceNum,
-        categoriaId: categoriaNum,
-      });
-      setSaving(false);
-      closeEditModal();
-      alert('Producto actualizado exitosamente.');
-      await load(); // Recargar la tabla
-    } catch (err: any) {
-      setSaving(false);
-      setFormError(err?.message || 'No se pudo actualizar el producto.');
-    }
-  };
-
-  // Eliminar
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`¿Eliminar producto "${name}"?`)) return;
-    try {
-      await ProductsApi.delete(id);
-      alert('Producto eliminado exitosamente.');
-      await load(); // Recargar la tabla
-    } catch (e: any) {
-      alert(e?.message ?? 'Error al eliminar');
-    }
-  };
-
-  // -------- Modal Crear Producto --------
-  const resetForm = () => {
-    setForm({
-      name: '',
-      description: '',
-      code: '',
-      price: '',
-      categoriaId: '',
-      categoriaNombre: '',
-    });
-    setFormError(null);
-    setCreateCatSuggestions([]);
-    setShowCreateCatSug(false);
-  };
-
-  const openCreateModal = () => {
-    resetForm();
-    setOpenCreate(true);
-  };
-
-  const closeCreateModal = () => {
-    setOpenCreate(false);
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-
-    if (!form.name.trim()) return setFormError('El nombre es obligatorio.');
-    if (!form.code.trim()) return setFormError('El código es obligatorio.');
-    const priceNum = Number(form.price);
-    if (!Number.isFinite(priceNum) || priceNum < 0) {
-      return setFormError('El precio debe ser un número válido y no negativo.');
-    }
-    const categoriaNum = Number(form.categoriaId);
-    if (!Number.isInteger(categoriaNum) || categoriaNum <= 0) {
-      return setFormError('La categoría es obligatoria (seleccioná una de la lista).');
-    }
-
-    try {
-      setSaving(true);
-      await ProductsApi.create({
-        name: form.name.trim(),
-        description: form.description?.trim() || undefined,
-        code: form.code.trim(),
-        price: priceNum,
-        categoriaId: categoriaNum,
-      });
-      setSaving(false);
-      closeCreateModal();
-      setPage(1);
-      await load();
-      alert('Producto creado exitosamente.');
-    } catch (err: any) {
-      setSaving(false);
-      setFormError(err?.message || 'No se pudo crear el producto.');
-    }
-  };
-
-  // -------- /Funciones CRUD ----------
-
-  // Handlers autocomplete (filtro)
-  const onFilterCatChange = (value: string) => {
-    setCategoryName(value);
-    setCategoryId(undefined); // hasta seleccionar
+  
+  const handleFilterCatChange = (value: string) => {
+    setCategoryFilterName(value);
+    setCategoryId(undefined);
     setShowCatFilterSug(true);
-
     if (catFilterDebounce.current) clearTimeout(catFilterDebounce.current);
     catFilterDebounce.current = setTimeout(async () => {
       if (value.trim().length >= 2) {
-        const opts = await searchCategories(value.trim());
-        setCatFilterSuggestions(opts);
+        setCatFilterSuggestions(await searchCategories(value.trim()));
       } else {
         setCatFilterSuggestions([]);
       }
-    }, 200);
+    }, 300);
   };
 
   const selectFilterCategory = (opt: CategoryOption) => {
     setCategoryId(opt.id);
-    setCategoryName(opt.nombre);
+    setCategoryFilterName(opt.nombre);
     setShowCatFilterSug(false);
-    setCatFilterSuggestions([]);
     setPage(1);
   };
 
-  // Handlers autocomplete (crear)
-  const onCreateCatChange = (value: string) => {
-    setForm((f) => ({ ...f, categoriaNombre: value, categoriaId: '' }));
-    setShowCreateCatSug(true);
-
-    if (createDebounce.current) clearTimeout(createDebounce.current);
-    createDebounce.current = setTimeout(async () => {
-      if (value.trim().length >= 2) {
-        const opts = await searchCategories(value.trim());
-        setCreateCatSuggestions(opts);
-      } else {
-        setCreateCatSuggestions([]);
-      }
-    }, 200);
+  const closeModals = () => {
+    setEditingProduct(null);
+    setFormState({ data: {}, error: null, isSaving: false, catName: '', catSuggestions: [], showCatSuggestions: false });
   };
 
-  const selectCreateCategory = (opt: CategoryOption) => {
-    setForm((f) => ({
-      ...f,
-      categoriaNombre: opt.nombre,
-      categoriaId: opt.id,
+  const openCreateModal = () => {
+    closeModals();
+    setFormState(s => ({ ...s, data: { id: 'new' } }));
+  };
+
+  const openEditModal = (product: Product) => {
+    closeModals();
+    setEditingProduct(product);
+    setFormState(s => ({
+      ...s,
+      data: { ...product },
+      catName: (product as any).categoriaNombre || '',
     }));
-    setShowCreateCatSug(false);
-    setCreateCatSuggestions([]);
   };
 
-  // Handlers autocomplete (editar)
-  const onEditCatChange = (value: string) => {
-    setEditCatName(value);
-    setEditForm((f) => (f ? ({ ...f, categoriaId: '' } as any) : f));
-    setShowEditCatSug(true);
+  const handleDelete = (id: number, name: string) => {
+    setConfirmDelete({ id, name });
+  };
 
-    if (editDebounce.current) clearTimeout(editDebounce.current);
-    editDebounce.current = setTimeout(async () => {
-      if (value.trim().length >= 2) {
-        const opts = await searchCategories(value.trim());
-        setEditCatSuggestions(opts);
+  const executeDelete = async () => {
+    if (!confirmDelete) return;
+    try {
+      await ProductsApi.delete(confirmDelete.id);
+      toast.success(`Producto "${confirmDelete.name}" eliminado.`);
+      setConfirmDelete(null);
+      await loadProducts();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al eliminar el producto.');
+    }
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormState(s => ({ ...s, error: null }));
+
+    const { data } = formState;
+    const priceNum = Number(data.price);
+    const categoriaNum = Number(data.categoriaId);
+
+    if (!data.name?.trim()) return setFormState(s => ({ ...s, error: 'El nombre es obligatorio.' }));
+    if (!data.code?.trim()) return setFormState(s => ({ ...s, error: 'El código es obligatorio.' }));
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      return setFormState(s => ({ ...s, error: 'El precio debe ser un número mayor a cero.' }));
+    }
+    if (!Number.isInteger(categoriaNum) || categoriaNum <= 0) {
+      return setFormState(s => ({ ...s, error: 'La categoría es obligatoria.' }));
+    }
+
+    setFormState(s => ({ ...s, isSaving: true }));
+    try {
+      const payload = {
+        name: data.name.trim(),
+        description: data.description?.trim() || undefined,
+        code: data.code.trim(),
+        price: priceNum,
+        categoriaId: categoriaNum,
+      };
+
+      if (editingProduct) {
+        await ProductsApi.update(editingProduct.id, payload);
+        toast.success('Producto actualizado exitosamente.');
       } else {
-        setEditCatSuggestions([]);
+        await ProductsApi.create(payload);
+        toast.success('Producto creado exitosamente.');
+        setPage(1);
       }
-    }, 200);
+      closeModals();
+      await loadProducts();
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Ocurrió un error inesperado.';
+      setFormState(s => ({ ...s, error: errorMessage }));
+      toast.error(errorMessage);
+    } finally {
+      setFormState(s => ({ ...s, isSaving: false }));
+    }
+  };
+  
+  const handleFormChange = (field: keyof Product, value: any) => {
+    setFormState(s => ({ ...s, data: { ...s.data, [field]: value } }));
   };
 
-  const selectEditCategory = (opt: CategoryOption) => {
-    setEditForm((f) => (f ? ({ ...f, categoriaId: opt.id } as any) : f));
-    setEditCatName(opt.nombre);
-    setShowEditCatSug(false);
-    setEditCatSuggestions([]);
-    // limpiar error si lo había
-    setFormError(null);
+  const handleFormCatChange = (value: string) => {
+    setFormState(s => ({
+      ...s,
+      catName: value,
+      data: { ...s.data, categoriaId: undefined },
+      showCatSuggestions: true,
+    }));
+    if (formDebounce.current) clearTimeout(formDebounce.current);
+    formDebounce.current = setTimeout(() => {
+        if (value.trim().length >= 2) {
+            searchCategories(value.trim()).then(suggestions => {
+                setFormState(s => ({ ...s, catSuggestions: suggestions }));
+            });
+        } else {
+            setFormState(s => ({ ...s, catSuggestions: [] }));
+        }
+    }, 300);
+  };
+
+  const selectFormCategory = (opt: CategoryOption) => {
+    setFormState(s => ({
+      ...s,
+      catName: opt.nombre,
+      data: { ...s.data, categoriaId: opt.id },
+      showCatSuggestions: false,
+      error: null,
+    }));
   };
 
   return (
-    <div className="p-6">
-      {/* Botón agregar producto */}
-      <div className="mb-4 flex justify-end">
-        <button
-          className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700"
-          onClick={openCreateModal}
-        >
-          Agregar producto
-        </button>
-      </div>
-
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por nombre</label>
+    <>
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <input
             type="text"
-            placeholder="Ej. Tornillo"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Buscar por nombre..."
+            value={searchByName}
+            onChange={(e) => { setSearchByName(e.target.value); setPage(1); }}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
           <input
             type="text"
-            placeholder="Ej. ABC123"
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Buscar por código..."
+            value={searchByCode}
+            onChange={(e) => { setSearchByCode(e.target.value); setPage(1); }}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
-        </div>
-
-        <div className="relative">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-          <input
-            type="text"
-            placeholder="Escribí para buscar…"
-            value={categoryName}
-            onChange={(e) => onFilterCatChange(e.target.value)}
-            onFocus={() => {
-              if (categoryName.trim().length >= 2 && catFilterSuggestions.length > 0) {
-                setShowCatFilterSug(true);
-              }
-            }}
-            onBlur={() => setTimeout(() => setShowCatFilterSug(false), 150)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {showCatFilterSug && catFilterSuggestions.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 sm:text-sm">
-              {catFilterSuggestions.map((s) => (
-                <li
-                  key={s.id}
-                  onMouseDown={() => selectFilterCategory(s)}
-                  className="cursor-pointer select-none px-3 py-2 hover:bg-indigo-600 hover:text-white"
-                >
-                  {s.nombre}
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Filtrar por categoría..."
+              value={categoryFilterName}
+              onChange={(e) => handleFilterCatChange(e.target.value)}
+              onFocus={() => catFilterSuggestions.length > 0 && setShowCatFilterSug(true)}
+              onBlur={() => setTimeout(() => setShowCatFilterSug(false), 200)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            {showCatFilterSug && catFilterSuggestions.length > 0 && (
+              <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm text-gray-900">
+                {catFilterSuggestions.map((s) => (
+                  <li key={s.id} onMouseDown={() => selectFilterCategory(s)} className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-600 hover:text-white">
+                    {s.nombre}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleFilterReset} className="w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">
+              Limpiar
+            </button>
+            <button onClick={openCreateModal} className="w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">
+              Agregar
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table table className="min-w-full divide-y divide-gray-200 text-sm text-gray-900">
-          <thead className="bg-gray-50">
+      <div className="mt-6 overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Nombre</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Descripción</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Categoría</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Código</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">Precio</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-700">Acciones</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nombre / Código</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Categoría</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Descripción</th>
+              <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Precio</th>
+              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
-
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {state.loading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  Cargando...
+          <tbody className="bg-white divide-y divide-gray-200">
+            {state.loading && <tr><td colSpan={5} className="p-8 text-center text-gray-500">Cargando productos...</td></tr>}
+            {state.error && !state.loading && <tr><td colSpan={5} className="p-8 text-center text-red-600">{state.error}</td></tr>}
+            {!state.loading && !state.error && items.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-500">No se encontraron productos.</td></tr>}
+            
+            {!state.loading && !state.error && items.map((p) => (
+              <tr key={p.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="font-medium text-gray-900">{p.name}</div>
+                  <div className="text-sm text-gray-500 font-mono">{p.code}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{(p as any).categoriaNombre || 'N/A'}</td>
+                <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title={p.description}>{p.description || <span className="text-gray-400">—</span>}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-800">
+                  Q{Number((p as any).price).toFixed(2)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                  <button onClick={() => openEditModal(p)} className="text-indigo-600 hover:text-indigo-900 transition-colors">Editar</button>
+                  <button onClick={() => handleDelete(p.id, p.name)} className="text-red-600 hover:text-red-900 transition-colors">Eliminar</button>
                 </td>
               </tr>
-            )}
-
-            {!state.loading && state.error && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-red-600">
-                  {state.error}
-                </td>
-              </tr>
-            )}
-
-            {!state.loading && !state.error && items.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  No hay productos para mostrar.
-                </td>
-              </tr>
-            )}
-
-            {!state.loading &&
-              !state.error &&
-              items.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{p.name}</td>
-                  <td className="px-4 py-3">
-                    {p.description ? (
-                      <span title={p.description}>
-                        {p.description.length > 80 ? p.description.slice(0, 80) + '…' : p.description}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{(p as any).categoriaNombre ?? `ID ${ (p as any).categoriaId }`}</td>
-                  <td className="px-4 py-3 font-mono">{p.code}</td>
-                  
-                  <td className="px-4 py-3 text-gray-900">
-                    {(() => {
-                        const raw = (p as any).price ?? (p as any).precio; // soporta price o precio y lo despliega en pantalla
-                        if (raw === undefined || raw === null || String(raw).trim() === '') return '—';
-                        const num = Number(raw);
-                        return Number.isFinite(num) ? num.toFixed(2) : '—';
-                    })()}
-                    </td>
-
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button
-                      className="inline-flex items-center rounded-md border px-3 py-1 text-xs hover:bg-gray-50"
-                      onClick={() => openEditModal((p as any).id)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="inline-flex items-center rounded-md border px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete((p as any).id, p.name)}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Paginación estilo categorías */}
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-sm text-gray-600">Página {page} de {Math.max(totalPages, 1)}</div>
-
-        <div className="flex items-center gap-1">
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={() => onGo(1)}
-            disabled={page <= 1}
-            title="Primera"
-          >
-            «
-          </button>
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={onPrev}
-            disabled={page <= 1}
-            title="Anterior"
-          >
-            ‹
-          </button>
-
-          {pageNumbers.map((p, idx) =>
-            p === 'dots' ? (
-              <span key={`d_${idx}`} className="px-2 text-gray-500 select-none">
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                onClick={() => onGo(p)}
-                className={`rounded-md border px-3 py-1 text-sm ${
-                  p === page ? 'bg-indigo-600 text-white border-indigo-600' : 'hover:bg-gray-50'
-                }`}
-              >
+      {!state.loading && totalPages > 0 && (
+        <div className="mt-6 flex items-center justify-between">
+          <span className="text-sm text-gray-700">Página {page} de {totalPages}</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => goToPage(1)} disabled={page <= 1} className="rounded border bg-white px-2.5 py-1 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50">«</button>
+            <button onClick={() => goToPage(page - 1)} disabled={page <= 1} className="rounded border bg-white px-2.5 py-1 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50">‹</button>
+            {pageNumbers.map((p, idx) => p === 'dots' ? <span key={`d_${idx}`} className="px-2 text-gray-500">…</span> : (
+              <button key={p} onClick={() => goToPage(p)} className={`rounded border px-3 py-1 text-sm ${p === page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
                 {p}
               </button>
-            ),
-          )}
-
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={onNext}
-            disabled={page >= totalPages || totalPages === 0}
-            title="Siguiente"
-          >
-            ›
-          </button>
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={() => onGo(totalPages)}
-            disabled={page >= totalPages || totalPages === 0}
-            title="Última"
-          >
-            »
-          </button>
+            ))}
+            <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages} className="rounded border bg-white px-2.5 py-1 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50">›</button>
+            <button onClick={() => goToPage(totalPages)} disabled={page >= totalPages} className="rounded border bg-white px-2.5 py-1 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50">»</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* -------- Modal Crear Producto -------- */}
-      {openCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Fondo */}
-          <div className="absolute inset-0 bg-black/40" onClick={closeCreateModal} aria-hidden="true" />
-          {/* Contenido */}
-          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Nuevo producto</h2>
-              <button onClick={closeCreateModal} className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100">
-                ✕
-              </button>
-            </div>
-
-            {formError && (
-              <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {formError}
+      {/* --- MODAL DE CREAR / EDITAR CON BUSCADOR DE CATEGORÍA --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+            {formState.error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{formState.error}</div>}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="text" value={formState.data.name || ''} onChange={(e) => handleFormChange('name', e.target.value)} placeholder="Nombre *" className="w-full rounded-md border-gray-300"/>
+              <textarea value={formState.data.description || ''} onChange={(e) => handleFormChange('description', e.target.value)} placeholder="Descripción (opcional)" className="w-full rounded-md border-gray-300 min-h-[80px]"/>
+              <div className="grid grid-cols-2 gap-4">
+                <input type="text" value={formState.data.code || ''} onChange={(e) => handleFormChange('code', e.target.value)} placeholder="Código *" className="w-full rounded-md border-gray-300"/>
+                <input type="number" step="0.01" value={formState.data.price || ''} onChange={(e) => handleFormChange('price', e.target.value)} placeholder="Precio *" className="w-full rounded-md border-gray-300"/>
               </div>
-            )}
-
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Nombre *</label>
-                <input
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Ej. Tornillo 1/4"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Descripción</label>
-                <textarea
-                  className="min-h-[80px] w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Opcional"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Código *</label>
-                  <input
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={form.code}
-                    onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                    placeholder="Ej. ABC123"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Precio *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={form.price}
-                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              {/* Autocomplete Categoría (crear) */}
+              
+              {/* --- CAMPO DE CATEGORÍA CON BUSCADOR --- */}
               <div className="relative">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Categoría *</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={form.categoriaNombre}
-                  onChange={(e) => onCreateCatChange(e.target.value)}
-                  onFocus={() => {
-                    if (form.categoriaNombre.trim().length >= 2 && createCatSuggestions.length > 0) {
-                      setShowCreateCatSug(true);
-                    }
-                  }}
-                  onBlur={() => setTimeout(() => setShowCreateCatSug(false), 150)}
-                  placeholder="Escribí para buscar categoría…"
-                />
-                {showCreateCatSug && createCatSuggestions.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 sm:text-sm text-gray-900">
-                    {createCatSuggestions.map((s) => (
-                      <li
-                        key={s.id}
-                        onMouseDown={() => selectCreateCategory(s)}
-                        className="cursor-pointer select-none px-3 py-2 hover:bg-indigo-600 hover:text-white"
-                      >
-                        {s.nombre}
-                      </li>
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="text" 
+                        value={formState.catName} 
+                        onChange={(e) => handleFormCatChange(e.target.value)} 
+                        placeholder="Escribe para buscar..." 
+                        onFocus={() => formState.catSuggestions.length > 0 && setFormState(s=>({...s, showCatSuggestions: true}))} 
+                        onBlur={() => setTimeout(() => setFormState(s=>({...s, showCatSuggestions: false})), 200)} 
+                        className="w-full rounded-md border-gray-300"
+                    />
+                    <button type="button" onClick={() => toast.info('No se econtraron coicidencias con la categoría buscada.')} className="flex-shrink-0 rounded-md bg-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300">
+                        Buscar
+                    </button>
+                </div>
+                {formState.showCatSuggestions && formState.catSuggestions.length > 0 && (
+                  <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 text-gray-900">
+                    {formState.catSuggestions.map((s) => (
+                      <li key={s.id} onMouseDown={() => selectFormCategory(s)} className="cursor-pointer select-none py-2 px-3 hover:bg-indigo-600 hover:text-white">{s.nombre}</li>
                     ))}
                   </ul>
                 )}
               </div>
 
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
-                  disabled={saving}
-                >
-                  {saving ? 'Guardando...' : 'Guardar'}
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={closeModals} disabled={formState.isSaving} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
+                <button type="submit" disabled={formState.isSaving} className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                  {formState.isSaving ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
               </div>
             </form>
@@ -697,131 +416,24 @@ export default function ProductsTable() {
         </div>
       )}
 
-      {/* -------- Modal Editar Producto -------- */}
-      {openEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Fondo */}
-          <div className="absolute inset-0 bg-black/40" onClick={closeEditModal} aria-hidden="true" />
-          {/* Contenido */}
-          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Editar producto: {editForm?.name}
-              </h2>
-              <button
-                onClick={closeEditModal}
-                className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                ✕
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              ¿Estás seguro de que quieres eliminar el producto <strong className="font-medium">{confirmDelete.name}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={executeDelete} className="rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                Eliminar
               </button>
             </div>
-
-            {formError && (
-              <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleEdit} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Nombre *</label>
-                <input
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editForm?.name || ''}
-                  onChange={(e) => setEditForm((f) => (f ? { ...f, name: e.target.value } : null))}
-                  placeholder="Ej. Tornillo 1/4"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Descripción</label>
-                <textarea
-                  className="min-h-[80px] w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editForm?.description || ''}
-                  onChange={(e) => setEditForm((f) => (f ? { ...f, description: e.target.value } : null))}
-                  placeholder="Opcional"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Código *</label>
-                  <input
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={editForm?.code || ''}
-                    onChange={(e) => setEditForm((f) => (f ? { ...f, code: e.target.value } : null))}
-                    placeholder="Ej. ABC123"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Precio *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={(editForm as any)?.price ?? ''}
-                    onChange={(e) =>
-                      setEditForm((f) => (f ? ({ ...f, price: e.target.value } as any) : f))
-                    }
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              {/* Autocomplete Categoría (editar) */}
-              <div className="relative">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Categoría *</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editCatName}
-                  onChange={(e) => onEditCatChange(e.target.value)}
-                  onFocus={() => {
-                    if (editCatName.trim().length >= 2 && editCatSuggestions.length > 0) {
-                      setShowEditCatSug(true);
-                    }
-                  }}
-                  onBlur={() => setTimeout(() => setShowEditCatSug(false), 150)}
-                  placeholder="Escribí para buscar categoría…"
-                />
-                {showEditCatSug && editCatSuggestions.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 sm:text-sm">
-                    {editCatSuggestions.map((s) => (
-                      <li
-                        key={s.id}
-                        onMouseDown={() => selectEditCategory(s)}
-                        className="cursor-pointer select-none px-3 py-2 hover:bg-indigo-600 hover:text-white"
-                      >
-                        {s.nombre}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
-                  disabled={saving}
-                >
-                  {saving ? 'Guardando...' : 'Actualizar'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
-      {/* -------- /Modal Editar Producto -------- */}
-    </div>
+    </>
   );
 }
