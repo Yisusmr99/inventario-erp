@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { ProductsApi } from '../../api/Products';
 import { ProductCategoriesApi } from '../../api/ProductCategories'; 
 import type { Product } from '../../types/Products';
-import { toast } from 'sonner';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // --- Tipos y Constantes ---
 type FetchState = {

@@ -16,7 +16,9 @@ import {
     RectangleStackIcon
 } from '@heroicons/react/24/outline'
 import UserMenu from '../comunes/UserMenu';
-import { Toaster } from 'sonner';
+// import { Toaster } from 'sonner';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const navigationItems = [
     // { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -60,7 +62,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
 
         if (!item.children) {
             return (
-                 <Link
+                <Link
                     to={item.href}
                     className={classNames(
                         isActive
@@ -126,7 +128,17 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
 
     return (
         <>
-            <Toaster position="top-right" richColors closeButton />
+            <ToastContainer 
+                position="top-right" 
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover 
+            />
 
             <div className="h-full bg-gray-100">
                 <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
