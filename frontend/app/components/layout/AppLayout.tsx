@@ -172,7 +172,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                                             </ul>
                                         </li>
                                         <li className="-mx-6 mt-auto">
-                                            <UserMenu />
+                                            {/* <UserMenu /> */}
                                         </li>
                                     </ul>
                                 </nav>
@@ -204,7 +204,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                                     </ul>
                                 </li>
                                 <li className="-mx-6 mt-auto">
-                                    <UserMenu />
+                                    {/* <UserMenu /> */}
                                 </li>
                             </ul>
                         </nav>
