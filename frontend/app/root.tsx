@@ -1,31 +1,7 @@
-import { useState, useEffect } from 'react'
-import {
-  isRouteErrorResponse,
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-  useLocation, // ⬅️ añade esto
-} from "react-router";
+import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
-
-import Keycloak from "keycloak-js";
-import { ReactKeycloakProvider, useKeycloak } from "@react-keycloak/web";
-
-const keycloak = new Keycloak({
-  url: `${import.meta.env.VITE_KEYCLOAK_URL}/`,
-  realm: import.meta.env.VITE_KEYCLOAK_REALM!,
-  clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID!,
-});
-
-// (Opcional) evita usar window en SSR
-const silentSSO =
-  typeof window !== "undefined"
-    ? `${window.location.origin}/silent-check-sso.html`
-    : undefined;
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -55,60 +31,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ---------- Auth gate que protege TODAS las rutas ---------- */
-function AuthGate({ children }: { children: React.ReactNode }) {
-  const { keycloak, initialized } = useKeycloak();
-  const location = useLocation();
-  const [mounted, setMounted] = useState(false);
-
-  // Marca cuando estamos en cliente
-  useEffect(() => setMounted(true), []);
-
-  // Dispara el login solo en cliente y cuando Keycloak ya inicializó
-  useEffect(() => {
-    if (!mounted) return;
-    if (initialized && !keycloak.authenticated) {
-      const redirectUri =
-        window.location.origin + location.pathname + location.search;
-      keycloak.login({ redirectUri });
-    }
-  }, [mounted, initialized, keycloak.authenticated, location]);
-
-  if (!mounted || !initialized) return <div>Loading auth…</div>;
-  if (!keycloak.authenticated) return <div>Redirecting to login…</div>;
-
-  return <>{children}</>;
-}
-
 export default function App() {
   return (
-    <ReactKeycloakProvider
-      authClient={keycloak}
-      initOptions={{
-        onLoad: 'check-sso',
-        pkceMethod: 'S256',
-        checkLoginIframe: false,
-        ...(silentSSO && { silentCheckSsoRedirectUri: silentSSO }),
-      }}
-      onEvent={(event, error) => {
-        // Útil para ver el ciclo de vida: onAuthSuccess, onTokenExpired, onAuthRefreshSuccess, etc.
-        // if (import.meta.env.DEV) console.log('KC event:', event, error);
-        console.log('Keycloak event:', event, error);
-      }}
-      onTokens={({ token, idToken, refreshToken }) => {
-        if (import.meta.env.DEV) {
-          console.log('KC tokens:', { token, idToken, refreshToken });
-        }
-        // (Opcional) Persistencia temporal en sessionStorage:
-        if (token) sessionStorage.setItem('kc_token', token);
-        if (refreshToken) sessionStorage.setItem('kc_refreshToken', refreshToken);
-        if (idToken) sessionStorage.setItem('kc_idToken', idToken);
-      }}
-    >
-      <AuthGate>
-        <Outlet />
-      </AuthGate>
-    </ReactKeycloakProvider>
+    <Layout>
+      <Outlet />
+    </Layout>
   );
 }
 
