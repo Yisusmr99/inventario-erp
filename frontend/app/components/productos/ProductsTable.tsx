@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ProductsApi } from '../../api/Products';
+import { ProductsApi as ApiProductsApi } from '../../api/Products';
 import { ProductCategoriesApi } from '../../api/ProductCategories';
-import type { Product } from '../../types/Products';
+import type { Product, ProductApi } from '../../types/Products';
+import DeleteProductDialog from './DeleteProductDialog';
 
 type FetchState = {
   loading: boolean;
@@ -9,6 +10,27 @@ type FetchState = {
 };
 
 type CategoryOption = { id: number; nombre: string };
+
+// Transform API data to UI format
+const transformProduct = (api: ProductApi): Product => ({
+  id: String(api.id_producto),
+  name: api.nombre,
+  description: api.descripcion,
+  categoriaId: api.id_categoria,
+  categoriaNombre: api.categoria_nombre || '',
+  code: api.codigo,
+  price: api.precio,
+  createdAt: api.fecha_creacion,
+  nombre: api.nombre, // alias for compatibility
+});
+
+const transformToApiFormat = (ui: Partial<Product>) => ({
+  nombre: ui.name,
+  descripcion: ui.description,
+  codigo: ui.code,
+  precio: ui.price,
+  id_categoria: ui.categoriaId,
+});
 
 const DEFAULT_PAGE_SIZE = 8;
 
@@ -86,6 +108,11 @@ export default function ProductsTable() {
   const [showEditCatSug, setShowEditCatSug] = useState(false);
   const editDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Delete dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Búsqueda de categorías
   async function searchCategories(query: string) {
     try {
@@ -128,7 +155,7 @@ export default function ProductsTable() {
   const load = async () => {
     try {
       setState({ loading: true, error: null });
-      const data = await ProductsApi.getAllWithPagination(queryParams);
+      const data = await ApiProductsApi.getAllWithPagination(queryParams);
       setItems(data.products);
       setTotalPages(data.totalPages);
       setTotalProducts(data.totalProducts ?? data.total ?? 0); // si tu API lo trae
@@ -159,11 +186,11 @@ export default function ProductsTable() {
   const openEditModal = async (id: number) => {
     try {
       setState((s) => ({ ...s, loading: true }));
-      const data = await ProductsApi.getById(id);
-      setEditForm(data);
+      const data = await ApiProductsApi.getById(id);
+      const transformedData = transformProduct(data);
+      setEditForm(transformedData);
       // precargar nombre de categoría si viene
-      // @ts-ignore por si tu tipo Product no lo define
-      const nombreCat = (data as any).categoriaNombre ?? '';
+      const nombreCat = transformedData.categoriaNombre ?? '';
       setEditCatName(nombreCat);
       setOpenEdit(true);
     } catch (err: any) {
@@ -199,11 +226,11 @@ export default function ProductsTable() {
 
     try {
       setSaving(true);
-      await ProductsApi.update(Number((editForm as any).id), {
+      await ApiProductsApi.update(Number((editForm as any).id), transformToApiFormat({
         ...editForm,
         price: priceNum,
         categoriaId: categoriaNum,
-      });
+      }));
       setSaving(false);
       closeEditModal();
       alert('Producto actualizado exitosamente.');
@@ -214,15 +241,32 @@ export default function ProductsTable() {
     }
   };
 
-  // Eliminar
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`¿Eliminar producto "${name}"?`)) return;
+  // Delete handlers
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    
+    setIsDeleting(true);
     try {
-      await ProductsApi.delete(id);
-      alert('Producto eliminado exitosamente.');
+      await ApiProductsApi.delete((productToDelete as any).id);
       await load(); // Recargar la tabla
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
     } catch (e: any) {
       alert(e?.message ?? 'Error al eliminar');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    if (!isDeleting) {
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
     }
   };
 
@@ -267,13 +311,13 @@ export default function ProductsTable() {
 
     try {
       setSaving(true);
-      await ProductsApi.create({
+      await ApiProductsApi.create(transformToApiFormat({
         name: form.name.trim(),
         description: form.description?.trim() || undefined,
         code: form.code.trim(),
         price: priceNum,
         categoriaId: categoriaNum,
-      });
+      }));
       setSaving(false);
       closeCreateModal();
       setPage(1);
@@ -518,7 +562,7 @@ export default function ProductsTable() {
                     </button>
                     <button
                       className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-                      onClick={() => handleDelete((p as any).id, p.name)}
+                      onClick={() => handleDeleteProduct(p)}
                     >
                       Eliminar
                     </button>
@@ -839,6 +883,15 @@ export default function ProductsTable() {
         </div>
       )}
       {/* -------- /Modal Editar Producto -------- */}
+
+      {/* Delete Product Dialog */}
+      <DeleteProductDialog
+        open={isDeleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        product={productToDelete}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }
