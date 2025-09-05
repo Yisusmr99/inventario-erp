@@ -42,6 +42,7 @@ export default function ProductsTable() {
   const [page, setPage] = useState(1);
   const [limit] = useState(DEFAULT_PAGE_SIZE);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalProducts, setTotalProducts] = useState<number>(0);
   const [state, setState] = useState<FetchState>({ loading: false, error: null });
 
   // Filtros
@@ -130,6 +131,7 @@ export default function ProductsTable() {
       const data = await ProductsApi.getAllWithPagination(queryParams);
       setItems(data.products);
       setTotalPages(data.totalPages);
+      setTotalProducts(data.totalProducts ?? data.total ?? 0); // si tu API lo trae
     } catch (err: any) {
       setState({
         loading: false,
@@ -362,20 +364,33 @@ export default function ProductsTable() {
     setFormError(null);
   };
 
+  // Helpers rango mostrado (solo para el texto descriptivo de paginación)
+  const rangeStart = (page - 1) * limit + (items.length ? 1 : 0);
+  const rangeEnd = Math.min(page * limit, totalProducts || page * limit);
+
   return (
-    <div className="p-6">
-      {/* Botón agregar producto */}
-      <div className="mb-4 flex justify-end">
-        <button
-          className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700"
-          onClick={openCreateModal}
-        >
-          Agregar producto
-        </button>
+    <div className="px-4 sm:px-6 lg:px-8">
+      {/* Header + botón agregar (misma posición/estilo que Categorías) */}
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-base font-semibold text-gray-900">Productos</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            Gestión de productos con búsqueda, filtros y paginación.
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            Agregar producto
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por nombre</label>
           <input
@@ -437,7 +452,7 @@ export default function ProductsTable() {
 
       {/* Tabla */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table table className="min-w-full divide-y divide-gray-200 text-sm text-gray-900">
+        <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-900">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-700">Nombre</th>
@@ -452,25 +467,19 @@ export default function ProductsTable() {
           <tbody className="divide-y divide-gray-100 bg-white">
             {state.loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  Cargando...
-                </td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Cargando...</td>
               </tr>
             )}
 
             {!state.loading && state.error && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-red-600">
-                  {state.error}
-                </td>
+                <td colSpan={6} className="px-4 py-6 text-center text-red-600">{state.error}</td>
               </tr>
             )}
 
             {!state.loading && !state.error && items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  No hay productos para mostrar.
-                </td>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No hay productos para mostrar.</td>
               </tr>
             )}
 
@@ -490,25 +499,25 @@ export default function ProductsTable() {
                   </td>
                   <td className="px-4 py-3">{(p as any).categoriaNombre ?? `ID ${ (p as any).categoriaId }`}</td>
                   <td className="px-4 py-3 font-mono">{p.code}</td>
-                  
                   <td className="px-4 py-3 text-gray-900">
                     {(() => {
-                        const raw = (p as any).price ?? (p as any).precio; // soporta price o precio y lo despliega en pantalla
-                        if (raw === undefined || raw === null || String(raw).trim() === '') return '—';
-                        const num = Number(raw);
-                        return Number.isFinite(num) ? num.toFixed(2) : '—';
+                      const raw = (p as any).price ?? (p as any).precio;
+                      if (raw === undefined || raw === null || String(raw).trim() === '') return '—';
+                      const num = Number(raw);
+                      return Number.isFinite(num) ? num.toFixed(2) : '—';
                     })()}
-                    </td>
+                  </td>
 
                   <td className="px-4 py-3 text-right space-x-2">
+                    {/* Botones con estilo alineado al de Categorías */}
                     <button
-                      className="inline-flex items-center rounded-md border px-3 py-1 text-xs hover:bg-gray-50"
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                       onClick={() => openEditModal((p as any).id)}
                     >
                       Editar
                     </button>
                     <button
-                      className="inline-flex items-center rounded-md border px-3 py-1 text-xs text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
                       onClick={() => handleDelete((p as any).id, p.name)}
                     >
                       Eliminar
@@ -520,64 +529,78 @@ export default function ProductsTable() {
         </table>
       </div>
 
-      {/* Paginación estilo categorías */}
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-sm text-gray-600">Página {page} de {Math.max(totalPages, 1)}</div>
+      {/* Paginación (mismo estilo que Categorías) */}
+      {totalPages > 1 && !state.loading && (
+        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-6">
+          {/* Mobile simple prev/next */}
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => onGo(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => onGo(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={() => onGo(1)}
-            disabled={page <= 1}
-            title="Primera"
-          >
-            «
-          </button>
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={onPrev}
-            disabled={page <= 1}
-            title="Anterior"
-          >
-            ‹
-          </button>
+          {/* Desktop detallado */}
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Mostrando <span className="font-medium">{rangeStart}</span> a{' '}
+                <span className="font-medium">{rangeEnd}</span> de{' '}
+                <span className="font-medium">{totalProducts || '—'}</span> resultados
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => onGo(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Anterior</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
 
-          {pageNumbers.map((p, idx) =>
-            p === 'dots' ? (
-              <span key={`d_${idx}`} className="px-2 text-gray-500 select-none">
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                onClick={() => onGo(p)}
-                className={`rounded-md border px-3 py-1 text-sm ${
-                  p === page ? 'bg-indigo-600 text-white border-indigo-600' : 'hover:bg-gray-50'
-                }`}
-              >
-                {p}
-              </button>
-            ),
-          )}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => onGo(p)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                      p === page
+                        ? 'z-10 bg-indigo-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+                        : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
 
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={onNext}
-            disabled={page >= totalPages || totalPages === 0}
-            title="Siguiente"
-          >
-            ›
-          </button>
-          <button
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-            onClick={() => onGo(totalPages)}
-            disabled={page >= totalPages || totalPages === 0}
-            title="Última"
-          >
-            »
-          </button>
+                <button
+                  onClick={() => onGo(Math.min(totalPages, page + 1))}
+                  disabled={page >= totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Siguiente</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* -------- Modal Crear Producto -------- */}
       {openCreate && (
@@ -705,9 +728,7 @@ export default function ProductsTable() {
           {/* Contenido */}
           <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Editar producto: {editForm?.name}
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">Editar producto: {editForm?.name}</h2>
               <button
                 onClick={closeEditModal}
                 className="rounded-md px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
@@ -717,9 +738,7 @@ export default function ProductsTable() {
             </div>
 
             {formError && (
-              <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {formError}
-              </div>
+              <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
             )}
 
             <form onSubmit={handleEdit} className="space-y-4">
@@ -761,9 +780,7 @@ export default function ProductsTable() {
                     min="0"
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     value={(editForm as any)?.price ?? ''}
-                    onChange={(e) =>
-                      setEditForm((f) => (f ? ({ ...f, price: e.target.value } as any) : f))
-                    }
+                    onChange={(e) => setEditForm((f) => (f ? ({ ...f, price: e.target.value } as any) : f))}
                     placeholder="0.00"
                   />
                 </div>
