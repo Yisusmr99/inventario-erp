@@ -313,7 +313,6 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                           key={s.id}
                           onMouseDown={() => {
                             // LOG para depuración
-                            console.log('DEBUG frontend seleccion categoriaId:', s.id, typeof s.id, s);
                             setCategoriaId(s.id); // guarda el ID real
                             setCategoriaNombre(s.nombre);
                             setShowSuggestions(false);
