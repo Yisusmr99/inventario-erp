@@ -60,17 +60,21 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     if (!open) return;
 
     if (initialData) {
-      setNombre(initialData.nombre ?? '');
-      setDescripcion(initialData.descripcion ?? '');
-      setCodigo(initialData.codigo ?? '');
-      setPrecio(initialData.precio ?? '');
-      // Si el Product trae el id de categoría, lo asignamos
-      // @ts-ignore (según tu tipo puede llamarse id_categoria)
-      const catId = (initialData as any).id_categoria ?? (initialData as any).categoriaId ?? '';
+      setNombre(initialData.nombre ?? initialData.name ?? '');
+      setDescripcion(initialData.description ?? '');
+      setCodigo(initialData.code ?? '');
+      setPrecio(initialData.price ?? '');
+      
+      // Manejar el ID de categoría desde diferentes formatos
+      const catId = (initialData as any).id_categoria ?? 
+                   initialData.categoriaId ?? 
+                   (initialData as any).categoria_id ?? '';
       setCategoriaId(catId);
-      // Intentar mostrar nombre si viene
-      // @ts-ignore (en algunos listados podrías traerlo como categoriaNombre o categoria?.nombre)
-      const catNombre = (initialData as any).categoriaNombre ?? (initialData as any).categoria?.nombre ?? '';
+      
+      // Intentar mostrar nombre de categoría si viene
+      const catNombre = initialData.categoriaNombre ?? 
+                       (initialData as any).categoria_nombre ?? 
+                       (initialData as any).categoria?.nombre ?? '';
       setCategoriaNombre(catNombre);
     } else {
       setNombre('');
@@ -117,15 +121,17 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     try {
       const payload = {
         nombre: nombre.trim(),
-        descripcion: descripcion.trim(),
+        descripcion: descripcion.trim() || undefined,
         codigo: codigo.trim(),
         precio: Number(precio),
-        categoriaId: categoriaId as number,
+        id_categoria: categoriaId as number,
       };
 
       if (mode === 'edit' && initialData) {
-        // @ts-ignore: id del producto en tu API
-        const idProducto = (initialData as any).id_producto ?? (initialData as any).id ?? undefined;
+        // Obtener ID del producto para editar
+        const idProducto = (initialData as any).id_producto ?? 
+                          (initialData as any).id ?? 
+                          (initialData as any).id_producto;
         await onSubmit(payload as UpdateProductRequest, idProducto);
       } else {
         await onSubmit(payload as CreateProductRequest);
