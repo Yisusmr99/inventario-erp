@@ -133,7 +133,6 @@ export default function ProductsTable() {
       const data = await ApiProductsApi.getAllWithPagination(queryParams);
       setItems(data.products);
       setTotalPages(data.totalPages);
-      console.log(data);
       setTotalProducts(data.totalItems ?? data.total ?? 0); // si tu API lo trae
     } catch (err: any) {
       setState({

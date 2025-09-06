@@ -13,7 +13,6 @@ interface Props {
 }
 
 export default function DeleteProductDialog({ open, onClose, onConfirm, product, isDeleting = false }: Props) {
-  console.log('DeleteProductDialog render with product:', product);
   if (!product) return null;
 
   return (
