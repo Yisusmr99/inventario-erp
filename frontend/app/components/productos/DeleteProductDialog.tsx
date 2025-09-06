@@ -13,6 +13,7 @@ interface Props {
 }
 
 export default function DeleteProductDialog({ open, onClose, onConfirm, product, isDeleting = false }: Props) {
+  console.log('DeleteProductDialog render with product:', product);
   if (!product) return null;
 
   return (
@@ -36,7 +37,7 @@ export default function DeleteProductDialog({ open, onClose, onConfirm, product,
                   <DialogTitle className="text-base font-semibold text-gray-900">Eliminar producto</DialogTitle>
                   <div className="mt-2">
                     <p className="text-sm text-gray-500">
-                      ¿Seguro que deseas eliminar <strong>"{product.nombre}"</strong>? Esta acción no se puede deshacer.
+                      ¿Seguro que deseas eliminar <strong>"{product.nombre || product.name}"</strong>? Esta acción no se puede deshacer.
                     </p>
                   </div>
                 </div>

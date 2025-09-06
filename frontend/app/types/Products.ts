@@ -62,4 +62,5 @@ export interface ProductsPaginationData {
   previousPageUrl: string | null;
   currentPageUrl: string | null;
   total?: number; // compatibility alias
+  totalItems?: number; // compatibility alias
 }
