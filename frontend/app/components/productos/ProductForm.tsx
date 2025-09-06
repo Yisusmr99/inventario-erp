@@ -26,7 +26,7 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [codigo, setCodigo] = useState('');
-  const [precio, setPrecio] = useState<number | ''>('');
+  const [precio, setPrecio] = useState<number >(0);
   const [categoriaId, setCategoriaId] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -60,23 +60,31 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     if (!open) return;
 
     if (initialData) {
-      setNombre(initialData.nombre ?? '');
-      setDescripcion(initialData.descripcion ?? '');
-      setCodigo(initialData.codigo ?? '');
-      setPrecio(initialData.precio ?? '');
-      // Si el Product trae el id de categoría, lo asignamos
-      // @ts-ignore (según tu tipo puede llamarse id_categoria)
-      const catId = (initialData as any).id_categoria ?? (initialData as any).categoriaId ?? '';
+      setNombre(initialData.nombre ?? initialData.name ?? '');
+      setDescripcion(initialData.description ?? '');
+      setCodigo(initialData.code ?? '');
+      setPrecio(
+        typeof initialData.price === 'number'
+          ? initialData.price
+          : parseFloat(String(initialData.price)) || 0
+      );
+
+      // Manejar el ID de categoría desde diferentes formatos
+      const catId = (initialData as any).id_categoria ?? 
+        initialData.categoriaId ?? 
+        (initialData as any).categoria_id ?? '';
       setCategoriaId(catId);
-      // Intentar mostrar nombre si viene
-      // @ts-ignore (en algunos listados podrías traerlo como categoriaNombre o categoria?.nombre)
-      const catNombre = (initialData as any).categoriaNombre ?? (initialData as any).categoria?.nombre ?? '';
+      
+      // Intentar mostrar nombre de categoría si viene
+      const catNombre = initialData.categoriaNombre ?? 
+        (initialData as any).categoria_nombre ?? 
+        (initialData as any).categoria?.nombre ?? '';
       setCategoriaNombre(catNombre);
     } else {
       setNombre('');
       setDescripcion('');
       setCodigo('');
-      setPrecio('');
+      setPrecio(0);
       setCategoriaId('');
       setCategoriaNombre('');
     }
@@ -88,6 +96,7 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
 
   // Habilitar botón
   const canSubmit = useMemo(() => {
+    // Validar que precio sea número y mayor que 0
     const precioValido = typeof precio === 'number' && precio > 0;
     const categoriaValida = typeof categoriaId === 'number' && categoriaId > 0;
     return Boolean(nombre.trim() && codigo.trim() && precioValido && categoriaValida);
@@ -98,8 +107,12 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     const nextErrors: { [key: string]: string } = {};
     if (!nombre.trim()) nextErrors.nombre = 'El nombre es obligatorio';
     if (!codigo.trim()) nextErrors.codigo = 'El código es obligatorio';
-    if (precio === '' || typeof precio !== 'number' || isNaN(precio) || precio <= 0) {
-      nextErrors.precio = 'El precio debe ser un número mayor a cero';
+    if (typeof precio !== 'number' || isNaN(precio)) {
+      nextErrors.precio = 'El precio es obligatorio';
+    } else if (precio === 0) {
+      nextErrors.precio = 'No es posible agregar productos con precio igual a Q0.00';
+    } else if (precio < 0) {
+      nextErrors.precio = 'El precio no puede ser negativo';
     }
     if (categoriaId === '' || typeof categoriaId !== 'number' || categoriaId <= 0) {
       nextErrors.categoriaId = 'La categoría es obligatoria';
@@ -117,30 +130,46 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     try {
       const payload = {
         nombre: nombre.trim(),
-        descripcion: descripcion.trim(),
+        descripcion: descripcion.trim() || undefined,
         codigo: codigo.trim(),
         precio: Number(precio),
-        categoriaId: categoriaId as number,
+        id_categoria: Number(categoriaId),
       };
 
       if (mode === 'edit' && initialData) {
-        // @ts-ignore: id del producto en tu API
-        const idProducto = (initialData as any).id_producto ?? (initialData as any).id ?? undefined;
+        // Obtener ID del producto para editar
+        const idProducto = (initialData as any).id_producto ?? 
+                          (initialData as any).id ?? 
+                          (initialData as any).id_producto;
         await onSubmit(payload as UpdateProductRequest, idProducto);
       } else {
         await onSubmit(payload as CreateProductRequest);
       }
       onClose();
-    } catch (error) {
-      console.error('Error al enviar el formulario:', error);
+    } catch (error: any) {
+  
+      // Si el error viene del backend, mostrar el mensaje en el campo correspondiente
+      if (error.data?.message) {
+        if (error.data.message.toLowerCase().includes('precio')) {
+          setErrors(prev => ({
+            ...prev,
+            precio: error.data.message
+          }));
+        } else {
+          setErrors(prev => ({
+            ...prev,
+            form: error.data.message
+          }));
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
   // Clases de inputs (estilo consistente)
   const inputBase =
-    'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm';
+    'block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm';
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-10">
@@ -165,6 +194,11 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
               </div>
 
               <form id="product-main-form" onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+                {errors.form && (
+                  <div className="rounded-md bg-red-50 p-4">
+                    <p className="text-sm text-red-700">{errors.form}</p>
+                  </div>
+                )}
                 {/* Nombre */}
                 <div>
                   <label className="block text-sm font-medium text-gray-900">
@@ -221,9 +255,9 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                     value={precio}
                     onChange={(e) => {
                       const raw = e.target.value;
-                      if (raw === '') return setPrecio('');
+                      if (raw === '') return setPrecio(0);
                       const num = Number(raw);
-                      setPrecio(Number.isFinite(num) ? num : '');
+                      setPrecio(Number.isFinite(num) ? num : 0);
                     }}
                     className={`${inputBase} ring-1 ring-inset ${errors.precio ? 'ring-red-500' : 'ring-gray-300'}`}
                     placeholder="0.00"
@@ -278,6 +312,8 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                         <li
                           key={s.id}
                           onMouseDown={() => {
+                            // LOG para depuración
+                            console.log('DEBUG frontend seleccion categoriaId:', s.id, typeof s.id, s);
                             setCategoriaId(s.id); // guarda el ID real
                             setCategoriaNombre(s.nombre);
                             setShowSuggestions(false);
@@ -326,5 +362,5 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
         </div>
       </div>
     </Dialog>
-  );
+  )
 }

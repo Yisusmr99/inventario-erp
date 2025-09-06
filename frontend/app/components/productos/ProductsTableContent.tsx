@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import type { Product } from '~/types/Products';
 
 interface Props {
@@ -8,82 +9,92 @@ interface Props {
   onEditProduct: (p: Product) => void;
   onDeleteProduct: (p: Product) => void;
   isLoading: boolean;
+  error?: string | null;
 }
 
 const ProductsTableContent = memo(function ProductsTableContent({
   products,
   onEditProduct,
   onDeleteProduct,
-  isLoading
+  isLoading,
+  error
 }: Props) {
-  if (isLoading) {
-    return (
-      <div className="mt-8 flow-root">
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-600">Cargando...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!products.length) {
-    return (
-      <div className="mt-8 text-center py-12">
-        <p className="text-gray-500">No se encontraron productos con los filtros aplicados.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mt-8 flow-root">
-      <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-        <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-          <div className="overflow-hidden shadow-sm outline-1 outline-black/5 sm:rounded-lg">
-            <table className="relative min-w-full divide-y divide-gray-300">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-6">Nombre</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Unidad de medida</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Categoría</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Fecha de creación</th>
-                  <th className="py-3.5 pr-4 pl-3 sm:pr-6">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {products.map((p) => (
-                  <tr key={p.id_producto}>
-                    <td className="py-4 pr-3 pl-4 text-sm font-medium whitespace-nowrap text-gray-900 sm:pl-6">
-                      {p.nombre}
-                    </td>
-                    <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-700">{p.unidadMedida}</td>
-                    <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-700">
-                      {p.categoriaNombre ?? `#${p.categoriaId}`}
-                    </td>
-                    <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-500">
-                      {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-ES') : '—'}
-                    </td>
-                    <td className="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
-                      <button
-                        onClick={() => onEditProduct(p)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-3"
-                      >
-                        Editar<span className="sr-only">, {p.nombre}</span>
-                      </button>
-                      <button
-                        onClick={() => onDeleteProduct(p)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Eliminar<span className="sr-only">, {p.nombre}</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+    <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <table className="min-w-full divide-y divide-gray-200 text-sm text-gray-900">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left font-medium text-gray-700">Nombre</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-700">Descripción</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-700">Categoría</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-700">Código</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-700">Precio</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-700">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {isLoading && (
+            <tr>
+              <td colSpan={6} className="px-4 py-6 text-center text-gray-500">Cargando...</td>
+            </tr>
+          )}
+
+          {!isLoading && error && (
+            <tr>
+              <td colSpan={6} className="px-4 py-6 text-center text-red-600">{error}</td>
+            </tr>
+          )}
+
+          {!isLoading && !error && products.length === 0 && (
+            <tr>
+              <td colSpan={6} className="px-4 py-6 text-center text-gray-500">No hay productos para mostrar.</td>
+            </tr>
+          )}
+
+          {!isLoading &&
+            !error &&
+            products.map((p) => (
+              <tr key={p.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3">{p.name}</td>
+                <td className="px-4 py-3">
+                  {p.description ? (
+                    <span title={p.description}>
+                      {p.description.length > 80 ? p.description.slice(0, 80) + '…' : p.description}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">{(p as any).categoriaNombre ?? `ID ${(p as any).categoriaId}`}</td>
+                <td className="px-4 py-3 font-mono">{p.code}</td>
+                <td className="px-4 py-3 text-gray-900">
+                  {(() => {
+                    const raw = (p as any).price ?? (p as any).precio;
+                    if (raw === undefined || raw === null || String(raw).trim() === '') return '—';
+                    const num = Number(raw);
+                    return Number.isFinite(num) ? num.toFixed(2) : '—';
+                  })()}
+                </td>
+
+                <td className="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
+                  <button
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    onClick={() => onEditProduct(p)}
+                  >
+                    <PencilSquareIcon className="h-4 w-4 mr-1" />
+                  </button>&nbsp;&nbsp;
+                  <button
+                    className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                    onClick={() => onDeleteProduct(p)}
+                  >
+                    <TrashIcon className="h-4 w-4 mr-1" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
     </div>
   );
 });

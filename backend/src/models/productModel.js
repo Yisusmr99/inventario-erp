@@ -1,6 +1,41 @@
+
 const db = require('../config/db');
 
 class ProductModel {
+
+  // Buscar producto por código
+  static async findByCode(codigo) {
+    const sql = `
+      SELECT 
+        p.id_producto, p.nombre, p.descripcion, p.id_categoria, p.codigo, p.precio,
+        c.nombre AS categoria_nombre
+      FROM Producto p
+      LEFT JOIN CategoriaProducto c ON c.id_categoria = p.id_categoria
+      WHERE p.codigo = ? AND p.estado = 1
+    `;
+    const [rows] = await db.execute(sql, [codigo]);
+    return rows[0] || null;
+  }
+
+  // Actualizar producto por código
+  static async updateByCode(codigo, { nombre, descripcion, categoriaId, codigo: newCodigo, precio }) {
+    // newCodigo permite cambiar el código si se desea
+    const sql = `
+      UPDATE Producto
+      SET nombre = ?, descripcion = ?, id_categoria = ?, codigo = ?, precio = ?
+      WHERE codigo = ? AND estado = 1
+    `;
+    const params = [nombre, descripcion || null, categoriaId, newCodigo || codigo, precio, codigo];
+    const [result] = await db.execute(sql, params);
+    return result.affectedRows > 0;
+  }
+
+  // Soft-delete por código
+  static async deleteByCode(codigo) {
+    const sql = `UPDATE Producto SET estado = 0 WHERE codigo = ? AND estado = 1`;
+    const [result] = await db.execute(sql, [codigo]);
+    return result.affectedRows > 0;
+  }
 
   static async create({ nombre, descripcion, categoriaId, codigo, precio }) {
   // 1) Buscar si ya existe ese código (activo o inactivo)
@@ -103,8 +138,8 @@ class ProductModel {
       params.push(categoriaId);
     }
     if (codigo) {
-      sql += ` AND p.codigo LIKE ?`;
-      params.push(`%${codigo}%`);
+      sql += ` AND p.codigo = ?`;
+      params.push(codigo);
     }
     sql += ` ORDER BY p.id_producto ASC LIMIT ? OFFSET ?`;
     params.push(Number(limit), Number(offset));

@@ -2,6 +2,7 @@
 
 import { memo } from 'react'
 import type { Category } from '~/types/ProductCategories'
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface CategoriesTableContentProps {
     categories: Category[]
@@ -88,15 +89,15 @@ const CategoriesTableContent = memo(function CategoriesTableContent({
                                         <td className="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
                                             <button
                                                 onClick={() => onEditCategory(category)}
-                                                className="text-indigo-600 hover:text-indigo-900 mr-3"
+                                                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                                             >
-                                                Editar<span className="sr-only">, {category.name}</span>
-                                            </button>
+                                                <PencilSquareIcon className="h-4 w-4 mr-1" />
+                                            </button>&nbsp;&nbsp;
                                             <button
                                                 onClick={() => onDeleteCategory(category)}
-                                                className="text-red-600 hover:text-red-900"
+                                                className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
                                             >
-                                                Eliminar<span className="sr-only">, {category.name}</span>
+                                                <TrashIcon className="h-4 w-4 mr-1" />
                                             </button>
                                         </td>
                                     </tr>

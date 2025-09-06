@@ -5,8 +5,8 @@ interface GetProductsParams {
     page?: number;
     limit?: number;
     search?: string;
-    categoriaId?: number;
-    codigo?: string;
+    categoryId?: number;
+    code?: string;  // Cambiado de 'codigo' a 'code' para ser consistente
 }
 
 export const ProductsApi = {
@@ -17,10 +17,9 @@ export const ProductsApi = {
         // Nota: El backend espera 'nombre', no 'search'.
         // Se corrigió en el backend para aceptar 'search' y mapearlo a 'nombre'.
         if (params.search) q.set('search', params.search);
-        if (typeof params.categoriaId === 'number') q.set('categoryId', String(params.categoriaId));
-        // Nota: El backend espera 'codigo', no 'code'.
-        // Se corrigió en el backend para aceptar 'code' y mapearlo a 'codigo'.
-        if (params.codigo) q.set('code', params.codigo);
+        if (typeof params.categoryId === 'number') q.set('categoryId', String(params.categoryId));
+        // El parámetro correcto para código
+        if (params.code) q.set('code', params.code);
 
         const endpoint = `/products${q.toString() ? `?${q.toString()}` : ''}`;
         const { data } = await apiClient.get<ProductsPaginationData>(endpoint);
