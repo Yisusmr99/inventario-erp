@@ -138,8 +138,8 @@ class ProductModel {
       params.push(categoriaId);
     }
     if (codigo) {
-      sql += ` AND p.codigo = ?`;
-      params.push(codigo);
+      sql += ` AND p.codigo LIKE ?`;
+      params.push(`%${codigo}%`);
     }
     sql += ` ORDER BY p.id_producto ASC LIMIT ? OFFSET ?`;
     params.push(Number(limit), Number(offset));
