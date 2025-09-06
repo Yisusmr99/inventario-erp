@@ -1,7 +1,56 @@
 const ProductModel = require('../models/productModel');
-const ProductCategory = require('../models/productCategoryModel'); // <-- Tu modelo personalizado
+const ProductCategory = require('../models/productCategoryModel');
 
 class ProductService {
+    // Actualizar producto por código
+    static async updateProductByCode(codigo, productData) {
+        const existingProduct = await ProductModel.findByCode(codigo);
+        if (!existingProduct) {
+            const error = new Error('Producto no encontrado.');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Validaciones similares a updateProduct
+        if (productData.nombre && await ProductModel.existsByName(productData.nombre, existingProduct.id_producto)) {
+            throw new Error('Ya existe un producto con este nombre.');
+        }
+        if (productData.codigo && await ProductModel.existsByCode(productData.codigo, existingProduct.id_producto)) {
+            throw new Error('Ya existe un producto con este código.');
+        }
+        if (productData.precio === 0) {
+            throw new Error('No es posible agregar productos con precio igual a Q0.00');
+        }
+        // Aceptar ambos nombres para la categoría
+        const categoriaId = productData.categoriaId !== undefined ? productData.categoriaId : productData.id_categoria;
+        const updatePayload = {
+            ...productData,
+            categoriaId
+        };
+
+        const success = await ProductModel.updateByCode(codigo, updatePayload);
+        if (success) {
+            const updatedProduct = await ProductModel.findByCode(productData.codigo || codigo);
+            return {
+                id: updatedProduct.id_producto,
+                name: updatedProduct.nombre,
+                description: updatedProduct.descripcion,
+                categoriaId: updatedProduct.id_categoria,
+                categoriaNombre: updatedProduct.categoria_nombre,
+                code: updatedProduct.codigo,
+                price: updatedProduct.precio
+            };
+        }
+        return null;
+    }
+
+    // Eliminar producto por código
+    static async deleteProductByCode(codigo) {
+        const success = await ProductModel.deleteByCode(codigo);
+        if (!success) {
+            throw new Error('Producto no encontrado o ya fue eliminado.');
+        }
+    }
     static async createProduct(productData) {
         if (!productData.nombre) {
             throw new Error('El nombre es obligatorio.');
@@ -9,12 +58,22 @@ class ProductService {
         if (!productData.codigo) {
             throw new Error('El código es obligatorio.');
         }
-        if (!productData.precio) {
-            throw new Error('El precio es obligatorio.');
+        if (productData.precio === undefined || productData.precio === null || productData.precio === '') {
+            const error = new Error('El precio es obligatorio.');
+            error.statusCode = 400;
+            throw error;
         }
-        if (!productData.categoriaId) {
-            throw new Error('La categoría es obligatoria.');
+        if (Number(productData.precio) === 0) {
+            const error = new Error('No es posible agregar productos con precio igual a Q0.00');
+            error.statusCode = 400;
+            throw error;
         }
+        if (productData.categoriaId === undefined || productData.categoriaId === null || productData.categoriaId === '' || Number(productData.categoriaId) === 0) {
+            const error = new Error('La categoría es obligatoria.');
+            error.statusCode = 400;
+            throw error;
+        }
+        // ...existing code...
 
         const nameExists = await ProductModel.existsByName(productData.nombre);
         if (nameExists) {
@@ -26,7 +85,6 @@ class ProductService {
             throw new Error('Ya existe un producto con este código.');
         }
 
-        // CORRECCIÓN: Usar findById en lugar de findByPk
         const categoryExists = await ProductCategory.findById(productData.categoriaId);
         if (!categoryExists) {
             const error = new Error('La categoría especificada no existe.');
@@ -70,14 +128,16 @@ class ProductService {
             error.statusCode = 404;
             throw error;
         }
+        // Devolver los campos con los nombres originales de la base de datos
         return {
-            id: product.id_producto,
-            name: product.nombre,
-            description: product.descripcion,
-            categoriaId: product.id_categoria,
-            categoriaNombre: product.categoria_nombre,
-            code: product.codigo,
-            price: product.precio
+            id_producto: product.id_producto ?? null,
+            nombre: product.nombre ?? '',
+            descripcion: product.descripcion ?? '',
+            id_categoria: product.id_categoria ?? null,
+            categoria_nombre: product.categoria_nombre ?? '',
+            codigo: product.codigo ?? '',
+            precio: product.precio ?? null,
+            fecha_creacion: product.fecha_creacion ?? null
         };
     }
 
@@ -95,7 +155,18 @@ class ProductService {
             throw new Error('Ya existe un producto con este código.');
         }
 
-        const success = await ProductModel.update(id, productData);
+        if (productData.precio === 0) {
+            throw new Error('No es posible agregar productos con precio igual a Q0.00');
+        }
+
+        // Aceptar ambos nombres para la categoría
+        const categoriaId = productData.categoriaId !== undefined ? productData.categoriaId : productData.id_categoria;
+        const updatePayload = {
+            ...productData,
+            categoriaId
+        };
+
+        const success = await ProductModel.update(id, updatePayload);
         if (success) {
             const updatedProduct = await ProductModel.findById(id);
             return {

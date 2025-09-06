@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { ProductsApi as ApiProductsApi } from '../../api/Products';
 import { ProductCategoriesApi } from '../../api/ProductCategories';
 import type { Product, ProductApi, CreateProductRequest, UpdateProductRequest } from '../../types/Products';
@@ -187,8 +189,10 @@ export default function ProductsTable() {
         id_categoria: payload.id_categoria,
       });
       await load(); // Recargar la tabla
+      toast.success('Producto creado con éxito');
       setPage(1); // Ir a la primera página
     } catch (error) {
+      toast.error('Error al crear el producto');
       throw error; // El ProductForm manejará el error
     }
   };
@@ -205,8 +209,10 @@ export default function ProductsTable() {
         precio: payload.precio,
         id_categoria: payload.id_categoria,
       });
+      toast.success('Producto actualizado con éxito');
       await load(); // Recargar la tabla
     } catch (error) {
+      toast.error('Error al actualizar el producto');
       throw error; // El ProductForm manejará el error
     }
   };
@@ -223,11 +229,12 @@ export default function ProductsTable() {
     setIsDeleting(true);
     try {
       await ApiProductsApi.delete((productToDelete as any).id);
+      toast.success('Producto eliminado con éxito');
       await load(); // Recargar la tabla
       setIsDeleteDialogOpen(false);
       setProductToDelete(null);
     } catch (e: any) {
-      alert(e?.message ?? 'Error al eliminar');
+      toast.error(e?.message ?? 'Error al eliminar');
     } finally {
       setIsDeleting(false);
     }
@@ -272,7 +279,8 @@ export default function ProductsTable() {
   const rangeEnd = Math.min(page * limit, totalProducts || page * limit);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+  <>
+  <div className="px-4 sm:px-6 lg:px-8">
       {/* Header + botón agregar (misma posición/estilo que Categorías) */}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
@@ -461,5 +469,17 @@ export default function ProductsTable() {
         isDeleting={isDeleting}
       />
     </div>
+    <ToastContainer
+      position="top-right"
+      autoClose={3000}
+      hideProgressBar={false}
+      newestOnTop={false}
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+    />
+    </>
   );
 }

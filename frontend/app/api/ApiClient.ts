@@ -39,23 +39,29 @@ class ApiClient {
             const response = await fetch(url, defaultConfig);
             clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            let data: any = null;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
             }
 
-            const data: ApiResponse<T> = await response.json();
+            if (!response.ok) {
+                // Si el backend envía un mensaje, lánzalo como error personalizado
+                const errorMsg = data?.message || `HTTP error! status: ${response.status}`;
+                const errorObj: any = new Error(errorMsg);
+                errorObj.status = response.status;
+                errorObj.data = data;
+                throw errorObj;
+            }
+
             return data;
-        } catch (error) {
+        } catch (error: any) {
             clearTimeout(timeoutId);
 
-            if (error instanceof Error) {
-                if (error.name === 'AbortError') {
-                    throw new Error('Request timeout');
-                }
-                throw error;
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout');
             }
-
-            throw new Error('Network error occurred');
+            throw error;
         }
     }
 
