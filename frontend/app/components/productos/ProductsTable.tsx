@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { ProductsApi as ApiProductsApi } from '../../api/Products';
 import { ProductCategoriesApi } from '../../api/ProductCategories';
 import type { Product, ProductApi } from '../../types/Products';
@@ -233,7 +235,7 @@ export default function ProductsTable() {
       }));
       setSaving(false);
       closeEditModal();
-      alert('Producto actualizado exitosamente.');
+  toast.success('Producto actualizado exitosamente.');
       await load(); // Recargar la tabla
     } catch (err: any) {
       setSaving(false);
@@ -322,7 +324,7 @@ export default function ProductsTable() {
       closeCreateModal();
       setPage(1);
       await load();
-      alert('Producto creado exitosamente.');
+  toast.success('Producto creado exitosamente.');
     } catch (err: any) {
       setSaving(false);
       setFormError(err?.message || 'No se pudo crear el producto.');
@@ -413,7 +415,8 @@ export default function ProductsTable() {
   const rangeEnd = Math.min(page * limit, totalProducts || page * limit);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+  <>
+  <div className="px-4 sm:px-6 lg:px-8">
       {/* Header + botón agregar (misma posición/estilo que Categorías) */}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
@@ -893,5 +896,17 @@ export default function ProductsTable() {
         isDeleting={isDeleting}
       />
     </div>
+    <ToastContainer
+      position="top-right"
+      autoClose={3000}
+      hideProgressBar={false}
+      newestOnTop={false}
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+    />
+    </>
   );
 }

@@ -98,8 +98,12 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
     const nextErrors: { [key: string]: string } = {};
     if (!nombre.trim()) nextErrors.nombre = 'El nombre es obligatorio';
     if (!codigo.trim()) nextErrors.codigo = 'El código es obligatorio';
-    if (precio === '' || typeof precio !== 'number' || isNaN(precio) || precio <= 0) {
-      nextErrors.precio = 'El precio debe ser un número mayor a cero';
+    if (precio === '' || typeof precio !== 'number' || isNaN(precio)) {
+      nextErrors.precio = 'El precio es obligatorio';
+    } else if (precio === 0) {
+      nextErrors.precio = 'No es posible agregar productos con precio igual a Q0.00';
+    } else if (precio < 0) {
+      nextErrors.precio = 'El precio no puede ser negativo';
     }
     if (categoriaId === '' || typeof categoriaId !== 'number' || categoriaId <= 0) {
       nextErrors.categoriaId = 'La categoría es obligatoria';
@@ -120,8 +124,10 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
         descripcion: descripcion.trim(),
         codigo: codigo.trim(),
         precio: Number(precio),
-        categoriaId: categoriaId as number,
+        id_categoria: Number(categoriaId),
       };
+      // LOG para depuración
+      console.log('DEBUG frontend handleSubmit id_categoria:', payload.id_categoria, typeof payload.id_categoria, 'categoriaId state:', categoriaId);
 
       if (mode === 'edit' && initialData) {
         // @ts-ignore: id del producto en tu API
@@ -131,12 +137,25 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
         await onSubmit(payload as CreateProductRequest);
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al enviar el formulario:', error);
+      // Si el error viene del backend, mostrar el mensaje en el campo correspondiente
+      if (error.data?.message) {
+        if (error.data.message.toLowerCase().includes('precio')) {
+          setErrors(prev => ({
+            ...prev,
+            precio: error.data.message
+          }));
+        } else {
+          setErrors(prev => ({
+            ...prev,
+            form: error.data.message
+          }));
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
-  };
 
   // Clases de inputs (estilo consistente)
   const inputBase =
@@ -165,6 +184,11 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
               </div>
 
               <form id="product-main-form" onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+                {errors.form && (
+                  <div className="rounded-md bg-red-50 p-4">
+                    <p className="text-sm text-red-700">{errors.form}</p>
+                  </div>
+                )}
                 {/* Nombre */}
                 <div>
                   <label className="block text-sm font-medium text-gray-900">
@@ -278,6 +302,8 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                         <li
                           key={s.id}
                           onMouseDown={() => {
+                            // LOG para depuración
+                            console.log('DEBUG frontend seleccion categoriaId:', s.id, typeof s.id, s);
                             setCategoriaId(s.id); // guarda el ID real
                             setCategoriaNombre(s.nombre);
                             setShowSuggestions(false);
