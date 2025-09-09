@@ -7,6 +7,7 @@ import type { Product, ProductApi, CreateProductRequest, UpdateProductRequest } 
 import DeleteProductDialog from './DeleteProductDialog';
 import ProductsTableContent from './ProductsTableContent';
 import ProductForm from './ProductForm';
+import ProductInventory from './ProductInventory';
 
 type FetchState = {
   loading: boolean;
@@ -87,6 +88,9 @@ export default function ProductsTable() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [openInventory, setOpenInventory] = useState(false);
+  const [modeEditOrView, setModeEditOrView] = useState<'edit' | 'view'>('edit');
 
   // Búsqueda de categorías
   async function searchCategories(query: string) {
@@ -170,6 +174,7 @@ export default function ProductsTable() {
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
     setOpenEdit(true);
+    setModeEditOrView('edit');
   };
 
   const closeEditModal = () => {
@@ -277,6 +282,16 @@ export default function ProductsTable() {
   const rangeStart = (page - 1) * limit + (items.length ? 1 : 0);
   const rangeEnd = Math.min(page * limit, totalProducts || page * limit);
 
+  const handleViewProduct = (product: Product) => {
+    setEditingProduct(product);
+    setOpenEdit(true);
+    setModeEditOrView('view');
+  }
+
+  const handleAddInventory = (product: Product) => {
+    setOpenInventory(true);
+  }
+
   return (
   <>
   <div className="px-4 sm:px-6 lg:px-8">
@@ -367,6 +382,8 @@ export default function ProductsTable() {
         onDeleteProduct={handleDeleteProduct}
         isLoading={state.loading}
         error={state.error}
+        onViewProduct={handleViewProduct}
+        onAddInventory={handleAddInventory}
       />
 
       {/* Paginación (mismo estilo que Categorías) */}
@@ -456,7 +473,7 @@ export default function ProductsTable() {
         onClose={closeEditModal}
         onSubmit={handleEditProduct}
         initialData={editingProduct}
-        mode="edit"
+        mode={modeEditOrView}
       />
 
       {/* Delete Product Dialog */}
@@ -466,6 +483,10 @@ export default function ProductsTable() {
         onConfirm={handleConfirmDelete}
         product={productToDelete}
         isDeleting={isDeleting}
+      />
+      <ProductInventory
+        open={openInventory}
+        onClose={() => setOpenInventory(false)}
       />
     </div>
     <ToastContainer
