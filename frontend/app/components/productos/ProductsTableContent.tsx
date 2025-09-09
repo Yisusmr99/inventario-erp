@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, TrashIcon, EyeIcon, ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
 import type { Product } from '~/types/Products';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   onDeleteProduct: (p: Product) => void;
   isLoading: boolean;
   error?: string | null;
+  onViewProduct: (p: Product) => void;
+  onAddInventory: (p: Product) => void;
 }
 
 const ProductsTableContent = memo(function ProductsTableContent({
@@ -17,7 +19,9 @@ const ProductsTableContent = memo(function ProductsTableContent({
   onEditProduct,
   onDeleteProduct,
   isLoading,
-  error
+  error,
+  onViewProduct,
+  onAddInventory
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -25,7 +29,6 @@ const ProductsTableContent = memo(function ProductsTableContent({
         <thead className="bg-gray-50">
           <tr>
             <th className="px-4 py-3 text-left font-medium text-gray-700">Nombre</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-700">Descripción</th>
             <th className="px-4 py-3 text-left font-medium text-gray-700">Categoría</th>
             <th className="px-4 py-3 text-left font-medium text-gray-700">Código</th>
             <th className="px-4 py-3 text-left font-medium text-gray-700">Precio</th>
@@ -57,15 +60,6 @@ const ProductsTableContent = memo(function ProductsTableContent({
             products.map((p) => (
               <tr key={p.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">{p.name}</td>
-                <td className="px-4 py-3">
-                  {p.description ? (
-                    <span title={p.description}>
-                      {p.description.length > 80 ? p.description.slice(0, 80) + '…' : p.description}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
                 <td className="px-4 py-3">{(p as any).categoriaNombre ?? `ID ${(p as any).categoriaId}`}</td>
                 <td className="px-4 py-3 font-mono">{p.code}</td>
                 <td className="px-4 py-3 text-gray-900">
@@ -79,16 +73,28 @@ const ProductsTableContent = memo(function ProductsTableContent({
 
                 <td className="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
                   <button
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                     onClick={() => onEditProduct(p)}
                   >
-                    <PencilSquareIcon className="h-4 w-4 mr-1" />
+                    <PencilSquareIcon className="h-4 w-4" />
                   </button>&nbsp;&nbsp;
                   <button
-                    className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                    className="inline-flex items-center rounded-md border border-red-200 bg-white px-2 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
                     onClick={() => onDeleteProduct(p)}
                   >
-                    <TrashIcon className="h-4 w-4 mr-1" />
+                    <TrashIcon className="h-4 w-4" />
+                  </button>&nbsp;&nbsp;
+                  <button
+                    className="inline-flex items-center rounded-md border border-blue-300 bg-white px-2 py-2 text-xs font-medium text-blue-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    onClick={() => onViewProduct(p)}
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                  </button> &nbsp;&nbsp;
+                  <button
+                    className="inline-flex items-center rounded-md border border-green-300 bg-white px-2 py-2 text-xs font-medium text-green-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    onClick={() => onAddInventory(p)}
+                  >
+                    <ClipboardDocumentCheckIcon className="h-4 w-4" />
                   </button>
                 </td>
               </tr>

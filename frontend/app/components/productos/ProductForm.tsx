@@ -6,7 +6,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import type { CreateProductRequest, UpdateProductRequest, Product } from '~/types/Products';
 import { ProductCategoriesApi } from 'app/api/ProductCategories';
 
-type Mode = 'create' | 'edit';
+type Mode = 'create' | 'edit' | 'view';
 
 interface Props {
   open: boolean;
@@ -186,7 +186,7 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-4">
                 <DialogTitle className="text-lg font-semibold leading-6 text-gray-900">
-                  {mode === 'create' ? 'Nuevo producto' : 'Editar producto'}
+                  {mode === 'create' ? 'Nuevo producto' : mode === 'edit' ? 'Editar producto' : 'Detalles del producto'}
                 </DialogTitle>
                 <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-gray-200">
                   <XMarkIcon className="h-6 w-6" />
@@ -207,9 +207,13 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                   <input
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    className={`${inputBase} ring-1 ring-inset ${errors.nombre ? 'ring-red-500' : 'ring-gray-300'}`}
+                    className={
+                      `${inputBase} ring-1 ring-inset ${errors.nombre ? 'ring-red-500' : 'ring-gray-300'}` + 
+                      (mode === 'view' ? ' bg-gray-100 cursor-not-allowed' : '')
+                    }
                     placeholder="Ej: Tornillo 1/4"
                     name="nombre"
+                    disabled={mode === 'view'}
                   />
                   {errors.nombre && <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>}
                 </div>
@@ -221,9 +225,12 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                     value={descripcion}
                     onChange={(e) => setDescripcion(e.target.value)}
                     rows={3}
-                    className={`${inputBase} ring-1 ring-inset ring-gray-300`}
+                    className={`${inputBase} ring-1 ring-inset ring-gray-300` +
+                      (mode === 'view' ? ' bg-gray-100 cursor-not-allowed' : '')  
+                    }
                     placeholder="Opcional"
                     name="descripcion"
+                    disabled={mode === 'view'}
                   />
                 </div>
 
@@ -235,9 +242,12 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                   <input
                     value={codigo}
                     onChange={(e) => setCodigo(e.target.value)}
-                    className={`${inputBase} ring-1 ring-inset ${errors.codigo ? 'ring-red-500' : 'ring-gray-300'}`}
+                    className={`${inputBase} ring-1 ring-inset ${errors.codigo ? 'ring-red-500' : 'ring-gray-300'}`+
+                      (mode === 'view' ? ' bg-gray-100 cursor-not-allowed' : '')  
+                    }
                     placeholder="Ej. ABC123"
                     name="codigo"
+                    disabled={mode === 'view'}
                   />
                   {errors.codigo && <p className="mt-1 text-sm text-red-600">{errors.codigo}</p>}
                 </div>
@@ -259,9 +269,12 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                       const num = Number(raw);
                       setPrecio(Number.isFinite(num) ? num : 0);
                     }}
-                    className={`${inputBase} ring-1 ring-inset ${errors.precio ? 'ring-red-500' : 'ring-gray-300'}`}
+                    className={`${inputBase} ring-1 ring-inset ${errors.precio ? 'ring-red-500' : 'ring-gray-300'}`+
+                      (mode === 'view' ? ' bg-gray-100 cursor-not-allowed' : '')  
+                    }
                     placeholder="0.00"
                     name="precio"
+                    disabled={mode === 'view'}
                   />
                   {errors.precio && <p className="mt-1 text-sm text-red-600">{errors.precio}</p>}
                 </div>
@@ -300,10 +313,11 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                     className={`${inputBase} ring-1 ring-inset ${
                       errors.categoriaId ? 'ring-red-500' : 'ring-gray-300'
-                    }`}
+                    }` + (mode === 'view' ? ' bg-gray-100 cursor-not-allowed' : '')}
                     placeholder="Escribí para buscar categoría…"
                     name="categoria"
                     autoComplete="off"
+                    disabled={mode === 'view'}
                   />
 
                   {showSuggestions && suggestions.length > 0 && (
@@ -340,14 +354,16 @@ export default function ProductForm({ open, onClose, onSubmit, initialData = nul
             </div>
 
             <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-              <button
-                type="submit"
-                form="product-main-form"
-                disabled={isSubmitting || !canSubmit}
-                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 sm:ml-3 sm:w-auto"
-              >
-                {isSubmitting ? 'Guardando…' : mode === 'create' ? 'Guardar' : 'Guardar cambios'}
-              </button>
+              { mode !== 'view' && (
+                <button
+                  type="submit"
+                  form="product-main-form"
+                  disabled={isSubmitting || !canSubmit}
+                  className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 sm:ml-3 sm:w-auto"
+                >
+                  {isSubmitting ? 'Guardando…' : mode === 'create' ? 'Guardar' : 'Guardar cambios'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onClose}
