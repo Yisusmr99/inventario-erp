@@ -29,6 +29,7 @@ app.use(express.urlencoded({ extended: true })); // Middleware para parsear URL-
 // Uso de Rutas
 app.use('/api/products', productRoutes);
 app.use('/api/product-categories', productCategoryRoutes);
+app.use('/api/ubicaciones', require('./routes/ubicacionRoutes'));
 app.use('/api/test', testRoutes);
 
 // Exportamos la app para que pueda ser importada por server.js
