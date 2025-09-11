@@ -7,7 +7,6 @@ import type { Product, ProductApi, CreateProductRequest, UpdateProductRequest } 
 import DeleteProductDialog from './DeleteProductDialog';
 import ProductsTableContent from './ProductsTableContent';
 import ProductForm from './ProductForm';
-import ProductInventory from './ProductInventory';
 
 type FetchState = {
   loading: boolean;
@@ -294,7 +293,7 @@ export default function ProductsTable() {
 
   return (
   <>
-  <div className="px-4 sm:px-6 lg:px-8">
+  <div className="px-4 sm:px-6 lg:px-2">
       {/* Header + botón agregar (misma posición/estilo que Categorías) */}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
@@ -383,7 +382,6 @@ export default function ProductsTable() {
         isLoading={state.loading}
         error={state.error}
         onViewProduct={handleViewProduct}
-        onAddInventory={handleAddInventory}
       />
 
       {/* Paginación (mismo estilo que Categorías) */}
@@ -483,10 +481,6 @@ export default function ProductsTable() {
         onConfirm={handleConfirmDelete}
         product={productToDelete}
         isDeleting={isDeleting}
-      />
-      <ProductInventory
-        open={openInventory}
-        onClose={() => setOpenInventory(false)}
       />
     </div>
     <ToastContainer
