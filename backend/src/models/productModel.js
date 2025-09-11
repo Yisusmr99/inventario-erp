@@ -178,6 +178,12 @@ class ProductModel {
     const [result] = await db.execute(sql, [id]);
     return result.affectedRows > 0;
   }
+
+  static async findAllRaw() {
+    const sql = `SELECT * FROM Producto WHERE estado = 1`;
+    const [rows] = await db.execute(sql);
+    return rows;
+  }
 }
 
 module.exports = ProductModel;
