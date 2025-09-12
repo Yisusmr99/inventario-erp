@@ -11,7 +11,7 @@ import 'react-toastify/dist/ReactToastify.css';
 interface FormData {
   id?: string;
   nombre_ubicacion: string;
-  descripcion: string;
+  descripcion?: string;      // ← opcional
   capacidad: number;
 }
 
@@ -33,26 +33,31 @@ export default function LocationForm({
   const [formData, setFormData] = useState<FormData>({
     nombre_ubicacion: '',
     descripcion: '',
-    capacidad: 0
+    capacidad: 1                 // ← default 1
   })
-  const [errors, setErrors] = useState<Partial<FormData>>({})
+ type FormErrors = Partial<Record<keyof FormData, string>>;
+ const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (open) {
-      if (initialData) setFormData(initialData)
-      else setFormData({ nombre_ubicacion: '', descripcion: '', capacidad: 0 })
+      if (initialData) setFormData({ ...initialData, capacidad: Number(initialData.capacidad ?? 1) })
+      else setFormData({ nombre_ubicacion: '', descripcion: '', capacidad: 1 })
       setErrors({})
     }
   }, [open, initialData])
 
   const validate = () => {
-    const e: Partial<FormData> = {}
-    if (!formData.nombre_ubicacion.trim()) e.nombre_ubicacion = 'El nombre es obligatorio'
-    else if (formData.nombre_ubicacion.trim().length > 100) e.nombre_ubicacion = 'El nombre no puede exceder 100 caracteres'
-    if (!formData.descripcion.trim()) e.descripcion = 'La descripción es obligatoria'
-    if (typeof formData.capacidad !== 'number' || isNaN(formData.capacidad) || formData.capacidad < 0)
-      e.capacidad = 'La capacidad debe ser un número mayor o igual a 0'
+    const e: FormErrors = {}
+    const nameTrimmed = formData.nombre_ubicacion.replace(/\s+/g, ' ').trim()
+    if (!nameTrimmed) e.nombre_ubicacion = 'El nombre es obligatorio'
+    else if (nameTrimmed.length > 100) e.nombre_ubicacion = 'El nombre no puede exceder 100 caracteres'
+    // descripción ya NO es obligatoria
+
+    const cap = Number(formData.capacidad)
+    if (!Number.isFinite(cap)) e.capacidad = 'La capacidad es obligatoria'
+    else if (cap <= 0) e.capacidad = 'La capacidad debe ser mayor a 0'  // ← > 0
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -61,26 +66,34 @@ export default function LocationForm({
     e.preventDefault()
     if (!validate()) return
 
+    const nameNormalized = formData.nombre_ubicacion.replace(/\s+/g, ' ').trim()
+
     setIsSubmitting(true)
     try {
-      await onSubmit(formData)
+      await onSubmit({
+        ...formData,
+        nombre_ubicacion: nameNormalized,
+        capacidad: Number(formData.capacidad),
+        descripcion: formData.descripcion?.trim() || undefined
+      })
       onClose()
     } catch (error: any) {
       const errorMessage = error?.message || 'Error desconocido'
       if (errorMessage.includes('Ya existe')) {
         setErrors(prev => ({ ...prev, nombre_ubicacion: errorMessage }))
       } else {
-        toast.error('Ya existe una ubicación con ese nombre.')
+        toast.error(errorMessage)
       }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const set = (field: keyof FormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
-  }
+// Reemplazo: set tipado por campo
+const set = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+  setFormData(prev => ({ ...prev, [field]: value }))
+  if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
+}
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-10">
@@ -122,6 +135,10 @@ export default function LocationForm({
                       id="nombre_ubicacion"
                       value={formData.nombre_ubicacion}
                       onChange={(e) => set('nombre_ubicacion', e.target.value)}
+                      onBlur={(e) => {
+                        const normalized = e.target.value.replace(/\s+/g, ' ').trim()
+                        set('nombre_ubicacion', normalized)
+                      }}
                       maxLength={100}
                       className={`block w-full rounded-md border-0 py-1.5 px-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${
                         errors.nombre_ubicacion ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600'
@@ -133,16 +150,16 @@ export default function LocationForm({
                   </div>
                 </div>
 
-                {/* Descripción */}
+                {/* Descripción (opcional) */}
                 <div>
                   <label htmlFor="descripcion" className="block text-sm font-medium leading-6 text-gray-900">
-                    Descripción <span className="text-red-500">*</span>
+                    Descripción
                   </label>
                   <div className="mt-2">
                     <textarea
                       id="descripcion"
                       rows={4}
-                      value={formData.descripcion}
+                      value={formData.descripcion || ''}
                       onChange={(e) => set('descripcion', e.target.value)}
                       className={`block w-full rounded-md border-0 py-1.5 px-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${
                         errors.descripcion ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600'
@@ -153,7 +170,7 @@ export default function LocationForm({
                   </div>
                 </div>
 
-                {/* Capacidad */}
+                {/* Capacidad (>0) */}
                 <div>
                   <label htmlFor="capacidad" className="block text-sm font-medium leading-6 text-gray-900">
                     Capacidad <span className="text-red-500">*</span>
@@ -162,13 +179,13 @@ export default function LocationForm({
                     <input
                       type="number"
                       id="capacidad"
-                      min={0}
+                      min={1}                                      // ← min 1
                       value={formData.capacidad}
-                      onChange={(e) => set('capacidad', Number(e.target.value))}
+                      onChange={(e) => set('capacidad', Number(e.target.value))}  // ← convertir a number
                       className={`block w-full rounded-md border-0 py-1.5 px-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${
                         errors.capacidad ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600'
                       }`}
-                      placeholder="0"
+                      placeholder="1"
                     />
                     {errors.capacidad && <p className="mt-1 text-sm text-red-600">{errors.capacidad}</p>}
                   </div>

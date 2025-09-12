@@ -14,7 +14,7 @@ import type {
   UpdateLocationRequest
 } from '../../types/Locations'
 
-const ITEMS_PER_PAGE = 8
+const ITEMS_PER_PAGE = 10
 
 const transformApiDataToLocation = (loc: Location): Location => ({
   id: loc.id.toString(),
@@ -120,21 +120,22 @@ export default function LocationsTable() {
   }, [])
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!locationToDelete) return
-    setIsDeleting(true)
+    if (!locationToDelete) return;
+    setIsDeleting(true);
     try {
-      // Si el backend usa soft delete con estado=0, podrías usar setEstado aquí en lugar de delete:
-      // await LocationsApi.setEstado(parseInt(locationToDelete.id), 0);
-      await LocationsApi.delete(parseInt(locationToDelete.id))
-      await loadLocations(currentPage, searchTerm)
-      setIsDeleteDialogOpen(false)
-      setLocationToDelete(null)
+      // Desactivar = estado 0
+      await LocationsApi.setEstado(parseInt(locationToDelete.id, 10), 0);
+      await loadLocations(currentPage, searchTerm);
+      setIsDeleteDialogOpen(false);
+      setLocationToDelete(null);
     } catch (error) {
-      console.error('Error deleting location:', error)
+      console.error('Error changing state:', error);
+      alert('No se pudo desactivar la ubicación.');
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }, [locationToDelete, loadLocations, currentPage, searchTerm])
+  }, [locationToDelete, loadLocations, currentPage, searchTerm]);
+
 
   const handleCloseDeleteDialog = useCallback(() => {
     if (!isDeleting) {
@@ -143,16 +144,24 @@ export default function LocationsTable() {
     }
   }, [isDeleting])
 
-  const handleToggleEstado = useCallback(async (loc: Location) => {
-    try {
-      const next = loc.status === 'Activa' ? 0 : 1
-      await LocationsApi.setEstado(parseInt(loc.id), next)
-      await loadLocations(currentPage, searchTerm)
-    } catch (err) {
-      console.error('Error toggling state:', err)
-      alert('No se pudo cambiar el estado.')
+    const handleToggleEstado = useCallback(async (loc: Location) => {
+    // Si está ACTIVA → mostramos confirmación antes de desactivar
+    if (loc.status === 'Activa') {
+      setLocationToDelete(loc);
+      setIsDeleteDialogOpen(true);
+      return;
     }
-  }, [loadLocations, currentPage, searchTerm])
+
+    // Si está INACTIVA → activamos sin confirmación
+    try {
+      await LocationsApi.setEstado(parseInt(loc.id, 10), 1);
+      await loadLocations(currentPage, searchTerm);
+    } catch (err) {
+      console.error('Error toggling state:', err);
+      alert('No se pudo cambiar el estado.');
+    }
+  }, [loadLocations, currentPage, searchTerm]);
+
 
   const getFormInitialData = useCallback(() => {
     if (editingLocation) {
@@ -211,7 +220,7 @@ export default function LocationsTable() {
       <div className="mt-6">
         <SearchBar
           onSearchChange={handleSearchChange}
-          placeholder="Buscar ubicaciones por nombre o descripción..."
+          placeholder="Buscar ubicaciones por nombre..."
           initialValue={searchTerm}
         />
       </div>
