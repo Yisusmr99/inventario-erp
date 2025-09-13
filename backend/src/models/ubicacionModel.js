@@ -68,18 +68,6 @@ class UbicacionModel {
     const [result] = await db.execute(sql, [estado, id]);
     return result.affectedRows > 0;
   }
-  
-  static async findAllActivas() {
-  const sql = `SELECT id_ubicacion, nombre_ubicacion 
-               FROM ubicacion 
-               WHERE estado = 1 
-               ORDER BY nombre_ubicacion ASC`;
-  const [rows] = await db.query(sql);
-  return rows;
-}
-
-
-
 }
 
 module.exports = UbicacionModel;
