@@ -10,5 +10,8 @@ router.post('/', UbicacionController.createUbicacion);
 router.put('/:id', UbicacionController.updateUbicacion);
 // Activar/desactivar ubicación (soft delete)
 router.patch('/:id/estado', UbicacionController.setEstadoUbicacion);
+// Listar solo ubicaciones activas
+router.get('/activas', UbicacionController.getUbicacionesActivas);
+
 
 module.exports = router;
