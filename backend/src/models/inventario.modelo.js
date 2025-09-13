@@ -42,6 +42,82 @@ class InventarioModelo {
     return { producto, detalle: detallePorUbicacion, total: suma.total };
   }
 
+  static async obtenerTodosProductosConInventario() {
+    const [inventarios] = await conexionBD.query(
+      `SELECT 
+        i.id_inventario,
+        i.id_producto,
+        i.id_ubicacion,
+        i.cantidad_actual,
+        i.stock_minimo,
+        i.stock_maximo,
+        p.nombre AS nombre_producto,
+        p.codigo AS codigo_producto,
+        u.nombre_ubicacion,
+        u.estado AS estado_ubicacion,
+        u.capacidad
+       FROM inventario i
+       JOIN Producto p ON p.id_producto = i.id_producto
+       JOIN ubicacion u ON u.id_ubicacion = i.id_ubicacion
+       ORDER BY p.nombre, u.nombre_ubicacion`
+    );
+
+    return inventarios;
+  }
+
+  static async obtenerProductosConInventarioPaginado({ offset = 0, limit = 10, search = null }) {
+    let query = `
+      SELECT 
+        i.id_inventario,
+        i.id_producto,
+        i.id_ubicacion,
+        i.cantidad_actual,
+        i.stock_minimo,
+        i.stock_maximo,
+        p.nombre AS nombre_producto,
+        p.codigo AS codigo_producto,
+        u.nombre_ubicacion,
+        u.estado AS estado_ubicacion,
+        u.capacidad
+      FROM inventario i
+      JOIN Producto p ON p.id_producto = i.id_producto
+      JOIN ubicacion u ON u.id_ubicacion = i.id_ubicacion
+      WHERE p.estado = 1
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` AND (p.nombre LIKE ? OR p.codigo LIKE ?)`;
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm);
+    }
+
+    query += ` ORDER BY p.nombre, u.nombre_ubicacion LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    const [inventarios] = await conexionBD.query(query, params);
+    return inventarios;
+  }
+
+  static async contarProductosConInventario(search = null) {
+    let query = `
+      SELECT COUNT(*) AS total
+      FROM inventario i
+      JOIN Producto p ON p.id_producto = i.id_producto
+      JOIN ubicacion u ON u.id_ubicacion = i.id_ubicacion
+      WHERE p.estado = 1
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` AND (p.nombre LIKE ? OR p.codigo LIKE ?)`;
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm);
+    }
+
+    const [[result]] = await conexionBD.query(query, params);
+    return result.total;
+  }
 
   static async obtenerFilaPorProductoUbicacion(conexion, idProducto, idUbicacion, bloquear = false) {
     const sql = `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, stock_minimo, stock_maximo

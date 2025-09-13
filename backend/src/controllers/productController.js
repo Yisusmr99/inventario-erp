@@ -134,5 +134,15 @@ class ProductController {
             return ResponseHelper.error(res, 'Error al eliminar el producto');
         }
     }
+
+    static async getAllRows(req, res) {
+        try {
+            const products = await ProductService.getAllRows();
+            return ResponseHelper.success(res, products, 'Productos obtenidos exitosamente');
+        } catch (error) {
+            console.error('Error al obtener productos:', error);
+            return ResponseHelper.error(res, 'Error al obtener los productos');
+        }
+    }
 }
 module.exports = ProductController;

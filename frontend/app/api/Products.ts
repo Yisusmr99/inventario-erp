@@ -47,4 +47,9 @@ export const ProductsApi = {
     async delete(id: number): Promise<void> {
         await apiClient.delete(`/products/${id}`);
     },
+
+    async getAll(): Promise<ProductApi[]> {
+        const { data } = await apiClient.get<ProductApi[]>('/products/all');
+        return data;
+    }
 };

@@ -7,6 +7,9 @@ const rutasInventario = express.Router();
 // Desglose por producto (by-group)
 rutasInventario.get('/by-product/:idProducto', controladorInventario.obtenerPorProducto);
 
+// Obtener todos los productos con inventario
+rutasInventario.get('/all-products-inventory', controladorInventario.obtenerTodosProductosConInventario);
+
 // Ajuste de cantidad (+/-)
 rutasInventario.post('/adjust', controladorInventario.ajustarCantidad);
 

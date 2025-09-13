@@ -11,7 +11,6 @@ interface Props {
   isLoading: boolean;
   error?: string | null;
   onViewProduct: (p: Product) => void;
-  onAddInventory: (p: Product) => void;
 }
 
 const ProductsTableContent = memo(function ProductsTableContent({
@@ -20,8 +19,7 @@ const ProductsTableContent = memo(function ProductsTableContent({
   onDeleteProduct,
   isLoading,
   error,
-  onViewProduct,
-  onAddInventory
+  onViewProduct
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -89,13 +87,7 @@ const ProductsTableContent = memo(function ProductsTableContent({
                     onClick={() => onViewProduct(p)}
                   >
                     <EyeIcon className="h-4 w-4" />
-                  </button> &nbsp;&nbsp;
-                  <button
-                    className="inline-flex items-center rounded-md border border-green-300 bg-white px-2 py-2 text-xs font-medium text-green-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                    onClick={() => onAddInventory(p)}
-                  >
-                    <ClipboardDocumentCheckIcon className="h-4 w-4" />
-                  </button>
+                  </button> 
                 </td>
               </tr>
             ))}
