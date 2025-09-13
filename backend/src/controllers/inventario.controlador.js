@@ -123,3 +123,52 @@ exports.transferir = async (req, res) => {
     });
   }
 };
+
+exports.obtenerTodosProductosConInventario = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const result = await InventarioServicio.obtenerTodosProductosConInventario({ 
+      page: parseInt(page, 10), 
+      limit: parseInt(limit, 10),
+      search: search || null
+    });
+
+    // Construir URLs base
+    const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+    
+    // Construir query params para las URLs
+    const buildUrl = (pageNum) => {
+      const params = new URLSearchParams();
+      params.append('page', pageNum.toString());
+      params.append('limit', limit.toString());
+      if (search) params.append('search', search);
+      return `${baseUrl}?${params.toString()}`;
+    };
+
+    // Agregar información adicional de paginación con URLs
+    const response = {
+      ...result,
+      nextPage: result.hasNextPage ? result.currentPage + 1 : null,
+      previousPage: result.hasPreviousPage ? result.currentPage - 1 : null,
+      nextPageUrl: result.hasNextPage ? buildUrl(result.currentPage + 1) : null,
+      previousPageUrl: result.hasPreviousPage ? buildUrl(result.currentPage - 1) : null,
+      currentPageUrl: buildUrl(result.currentPage),
+      firstPageUrl: buildUrl(1),
+      lastPageUrl: result.totalPages > 0 ? buildUrl(result.totalPages) : null
+    };
+
+    res.json({
+      success: true,
+      status: 200,
+      message: 'OK',
+      data: response
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      status: 400,
+      message: error.message,
+      data: null
+    });
+  }
+};

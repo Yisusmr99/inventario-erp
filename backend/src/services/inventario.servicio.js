@@ -8,6 +8,48 @@ class InventarioServicio {
     return InventarioModelo.resumenPorProducto(idProducto);
   }
 
+  // GET: /all-products-inventory
+  static async obtenerTodosProductosConInventario({ page = 1, limit = 10, search = null } = {}) {
+    const totalItems = await InventarioModelo.contarProductosConInventario(search);
+    const totalPages = Math.ceil(totalItems / limit);
+    const offset = (page - 1) * limit;
+
+    // Si no hay registros, devolver estructura vacía
+    if (totalItems === 0) {
+      return {
+        products: [],
+        totalItems: 0,
+        totalPages: 0,
+        currentPage: page,
+        hasNextPage: false,
+        hasPreviousPage: false
+      };
+    }
+
+    // Si la página solicitada excede el total, devolver la última página
+    let currentPage = page;
+    let currentOffset = offset;
+    if (offset >= totalItems) {
+      currentPage = totalPages;
+      currentOffset = (currentPage - 1) * limit;
+    }
+
+    const products = await InventarioModelo.obtenerProductosConInventarioPaginado({
+      offset: parseInt(currentOffset),
+      limit: parseInt(limit),
+      search
+    });
+
+    return {
+      products,
+      totalItems,
+      totalPages,
+      currentPage,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1
+    };
+  }
+
   // POST: /adjust  (solo cantidad ±N)
   static async ajustarCantidad({ id_producto, id_ubicacion, cantidad, motivo, usuario }) {
     if (!Number.isInteger(id_producto) || !Number.isInteger(id_ubicacion)) {

@@ -188,6 +188,11 @@ class ProductService {
             throw new Error('Producto no encontrado o ya fue eliminado.');
         }
     }
+
+    static async getAllRows() {
+        const products = await ProductModel.findAllRaw();
+        return products;
+    }
 }
 
 module.exports = ProductService;
