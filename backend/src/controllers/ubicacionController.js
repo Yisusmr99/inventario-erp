@@ -2,7 +2,6 @@ const UbicacionService = require('../services/ubicacionService');
 const ResponseHelper = require('../utils/responseHelper');
 
 class UbicacionController {
-  // Crear una ubicación
   static async createUbicacion(req, res) {
     try {
       const usuario = req.user?.id || 'sistema';
@@ -13,7 +12,6 @@ class UbicacionController {
     }
   }
 
-  // Listar ubicaciones con filtros y paginación
   static async getUbicaciones(req, res) {
     try {
       const { page = 1, limit = 10, nombre_ubicacion, estado } = req.query;
@@ -29,17 +27,6 @@ class UbicacionController {
     }
   }
 
-  // Listar ubicaciones activas sin paginación ni filtros
-  static async getUbicacionesActivas(req, res) {
-    try {
-      const ubicaciones = await UbicacionService.findAllActivas();
-      return ResponseHelper.success(res, ubicaciones, 'Ubicaciones activas obtenidas exitosamente');
-    } catch (error) {
-      return ResponseHelper.error(res, error.message);
-    }
-  }
-
-  // Actualizar una ubicación
   static async updateUbicacion(req, res) {
     try {
       const { id } = req.params;
@@ -51,7 +38,6 @@ class UbicacionController {
     }
   }
 
-  // Activar / desactivar una ubicación
   static async setEstadoUbicacion(req, res) {
     try {
       const { id } = req.params;
