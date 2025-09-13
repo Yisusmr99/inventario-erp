@@ -32,6 +32,14 @@ const navigationItems = [
     // { name: 'Proveedores', href: '/suppliers', icon: UsersIcon },
     // { name: 'Reportes', href: '/reports', icon: ChartPieIcon },
     // { name: 'Calendario', href: '/calendar', icon: CalendarIcon },
+
+      {
+    name: 'Inventario',
+    icon: FolderIcon,
+    children: [
+      { name: 'Ubicaciones', href: '/inventory/locations', icon: HomeIcon },
+    ]
+  },
 ]
 
 function classNames(...classes: string[]) {
