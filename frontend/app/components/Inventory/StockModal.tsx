@@ -84,7 +84,7 @@ export default function StockModal({ isOpen, onClose, item, onSubmit }: StockMod
     const styleInput = 'block w-full rounded-md border-0 py-1.5 px-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6';
 
     return (
-        <Dialog open={isOpen} onClose={onClose}>
+        <Dialog open={isOpen} onClose={onClose} className={"relative z-10"}>
             <DialogBackdrop
                 transition
                 className="fixed inset-0 bg-gray-500/75 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
