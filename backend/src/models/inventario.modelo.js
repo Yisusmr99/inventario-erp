@@ -1,4 +1,3 @@
-// src/models/inventario.modelo.js
 const conexionBD = require('../config/db');
 
 class InventarioModelo {
@@ -18,7 +17,6 @@ class InventarioModelo {
     return filaUbicacion || null;
   }
 
-
   static async resumenPorProducto(idProducto) {
     const producto = await this.obtenerProductoPorId(idProducto);
     if (!producto) return null;
@@ -26,7 +24,7 @@ class InventarioModelo {
     const [detallePorUbicacion] = await conexionBD.query(
       `SELECT i.id_inventario, i.id_producto, i.id_ubicacion,
               u.nombre_ubicacion AS ubicacion, u.estado, u.capacidad,
-              i.cantidad_actual, i.stock_minimo, i.stock_maximo
+              i.cantidad_actual, i.punto_reorden, i.stock_minimo, i.stock_maximo
        FROM inventario i
        JOIN ubicacion u ON u.id_ubicacion = i.id_ubicacion
        WHERE i.id_producto = ?
@@ -49,6 +47,7 @@ class InventarioModelo {
         i.id_producto,
         i.id_ubicacion,
         i.cantidad_actual,
+        i.punto_reorden,
         i.stock_minimo,
         i.stock_maximo,
         p.nombre AS nombre_producto,
@@ -72,6 +71,7 @@ class InventarioModelo {
         i.id_producto,
         i.id_ubicacion,
         i.cantidad_actual,
+        i.punto_reorden,
         i.stock_minimo,
         i.stock_maximo,
         p.nombre AS nombre_producto,
@@ -120,7 +120,7 @@ class InventarioModelo {
   }
 
   static async obtenerFilaPorProductoUbicacion(conexion, idProducto, idUbicacion, bloquear = false) {
-    const sql = `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, stock_minimo, stock_maximo
+    const sql = `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, punto_reorden, stock_minimo, stock_maximo
                  FROM inventario
                  WHERE id_producto=? AND id_ubicacion=?
                  LIMIT 1 ${bloquear ? 'FOR UPDATE' : ''}`;
@@ -129,7 +129,7 @@ class InventarioModelo {
   }
 
   static async obtenerFilaPorId(conexion, idInventario, bloquear = false) {
-    const sql = `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, stock_minimo, stock_maximo
+    const sql = `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, punto_reorden, stock_minimo, stock_maximo
                  FROM inventario
                  WHERE id_inventario=?
                  LIMIT 1 ${bloquear ? 'FOR UPDATE' : ''}`;
@@ -145,7 +145,6 @@ class InventarioModelo {
     return !!existe;
   }
 
- 
   static async actualizarSoloCantidad(conexion, idInventario, nuevaCantidad) {
     await conexion.query(
       'UPDATE inventario SET cantidad_actual=? WHERE id_inventario=?',
@@ -153,25 +152,26 @@ class InventarioModelo {
     );
   }
 
-  static async crearInventario(conexion, { idProducto, idUbicacion, cantidad, stockMinimo, stockMaximo }) {
+  static async crearInventario(conexion, { idProducto, idUbicacion, cantidad, puntoReorden, stockMinimo, stockMaximo }) {
     await conexion.query(
-      `INSERT INTO inventario (id_producto, id_ubicacion, cantidad_actual, stock_minimo, stock_maximo)
-       VALUES (?, ?, ?, ?, ?)`,
-      [idProducto, idUbicacion, cantidad, stockMinimo, stockMaximo]
+      `INSERT INTO inventario (id_producto, id_ubicacion, cantidad_actual, punto_reorden, stock_minimo, stock_maximo)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [idProducto, idUbicacion, cantidad, puntoReorden, stockMinimo, stockMaximo]
     );
   }
 
-  static async editarInventario(conexion, { idInventario, stockMinimo = null, stockMaximo = null, idUbicacion = null }) {
+  static async editarInventario(conexion, { idInventario, puntoReorden = null, stockMinimo = null, stockMaximo = null, idUbicacion = null }) {
     const columnasAActualizar = [];
     const valores = [];
-    if (stockMinimo !== null && stockMinimo !== undefined) { columnasAActualizar.push('stock_minimo=?'); valores.push(stockMinimo); }
-    if (stockMaximo !== null && stockMaximo !== undefined) { columnasAActualizar.push('stock_maximo=?'); valores.push(stockMaximo); }
-    if (idUbicacion !== null && idUbicacion !== undefined) { columnasAActualizar.push('id_ubicacion=?'); valores.push(idUbicacion); }
+    if (puntoReorden !== null && puntoReorden !== undefined) { columnasAActualizar.push('punto_reorden=?'); valores.push(puntoReorden); }
+    if (stockMinimo   !== null && stockMinimo   !== undefined) { columnasAActualizar.push('stock_minimo=?');  valores.push(stockMinimo); }
+    if (stockMaximo   !== null && stockMaximo   !== undefined) { columnasAActualizar.push('stock_maximo=?');  valores.push(stockMaximo); }
+    if (idUbicacion   !== null && idUbicacion   !== undefined) { columnasAActualizar.push('id_ubicacion=?');  valores.push(idUbicacion); }
     if (!columnasAActualizar.length) return;
+
     valores.push(idInventario);
     await conexion.query(`UPDATE inventario SET ${columnasAActualizar.join(', ')} WHERE id_inventario=?`, valores);
   }
-
 
   static async registrarBitacora(conexion, {
     idProducto,

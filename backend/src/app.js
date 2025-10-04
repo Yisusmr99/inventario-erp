@@ -8,6 +8,8 @@ const productRoutes = require('./routes/productRoutes');
 const productCategoryRoutes = require('./routes/productCategoryRoutes');
 const testRoutes = require('./routes/testRoutes');
 const rutasInventario = require('./routes/inventario.rutas');
+const rutasReportes = require('./routes/reportes.rutas');
+
 
 // Opciones de CORS
 const corsOptions = {
@@ -33,6 +35,9 @@ app.use('/api/product-categories', productCategoryRoutes);
 app.use('/api/ubicaciones', require('./routes/ubicacionRoutes'));
 app.use('/api/test', testRoutes);
 app.use('/api/inventory', rutasInventario);
+app.use('/api/reports', rutasReportes);
+
+
 
 // Exportamos la app para que pueda ser importada por server.js
 module.exports = app;

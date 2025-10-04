@@ -1,4 +1,3 @@
-// src/services/inventario.servicio.js
 const conexionBD = require('../config/db');
 const InventarioModelo = require('../models/inventario.modelo');
 
@@ -8,13 +7,12 @@ class InventarioServicio {
     return InventarioModelo.resumenPorProducto(idProducto);
   }
 
-  // GET: /all-products-inventory
+  // GET: /all-products-inventory (paginado + búsqueda)
   static async obtenerTodosProductosConInventario({ page = 1, limit = 10, search = null } = {}) {
     const totalItems = await InventarioModelo.contarProductosConInventario(search);
     const totalPages = Math.ceil(totalItems / limit);
     const offset = (page - 1) * limit;
 
-    // Si no hay registros, devolver estructura vacía
     if (totalItems === 0) {
       return {
         products: [],
@@ -26,7 +24,6 @@ class InventarioServicio {
       };
     }
 
-    // Si la página solicitada excede el total, devolver la última página
     let currentPage = page;
     let currentOffset = offset;
     if (offset >= totalItems) {
@@ -91,6 +88,7 @@ class InventarioServicio {
           idProducto:  id_producto,
           idUbicacion: id_ubicacion,
           cantidad:    cantidadNueva,
+          puntoReorden: null,
           stockMinimo: null,
           stockMaximo: null
         });
@@ -116,22 +114,31 @@ class InventarioServicio {
     }
   }
 
-  // POST: /create-inventory
-  static async crearInventario({ id_producto, id_ubicacion, cantidad, stock_minimo, stock_maximo, motivo, usuario }) {
+  // POST: /create-inventory  (ahora acepta punto_reorden)
+  static async crearInventario({ id_producto, id_ubicacion, cantidad, punto_reorden = null, stock_minimo = null, stock_maximo = null, motivo, usuario }) {
     if (!Number.isInteger(id_producto) || !Number.isInteger(id_ubicacion)) {
       throw new Error('id_producto e id_ubicacion son obligatorios');
     }
     if (!Number.isInteger(cantidad) || cantidad < 0) {
       throw new Error('cantidad debe ser un entero >= 0');
     }
-    if (!Number.isInteger(stock_minimo) || stock_minimo < 0) {
+    if (punto_reorden != null && (!Number.isInteger(punto_reorden) || punto_reorden < 0)) {
+      throw new Error('punto_reorden debe ser un entero >= 0');
+    }
+    if (stock_minimo != null && (!Number.isInteger(stock_minimo) || stock_minimo < 0)) {
       throw new Error('stock_minimo debe ser un entero >= 0');
     }
-    if (!Number.isInteger(stock_maximo) || stock_maximo < 0) {
+    if (stock_maximo != null && (!Number.isInteger(stock_maximo) || stock_maximo < 0)) {
       throw new Error('stock_maximo debe ser un entero >= 0');
     }
-    if (stock_minimo > stock_maximo) {
+    if (stock_minimo != null && stock_maximo != null && stock_minimo > stock_maximo) {
       throw new Error('stock_minimo no puede ser mayor que stock_maximo');
+    }
+    if (punto_reorden != null) {
+      if (stock_minimo != null && punto_reorden < stock_minimo)
+        throw new Error('punto_reorden no puede ser menor que stock_minimo');
+      if (stock_maximo != null && punto_reorden > stock_maximo)
+        throw new Error('punto_reorden no puede ser mayor que stock_maximo');
     }
 
     const datosProducto = await InventarioModelo.obtenerProductoPorId(id_producto);
@@ -148,30 +155,32 @@ class InventarioServicio {
     try {
       await conexion.beginTransaction();
 
-      // Insertar (si existe combinación, la restricción UNIQUE disparará error que capturamos)
       await InventarioModelo.crearInventario(conexion, {
         idProducto:  id_producto,
         idUbicacion: id_ubicacion,
         cantidad,
+        puntoReorden: punto_reorden,
         stockMinimo: stock_minimo,
         stockMaximo: stock_maximo
       });
 
-      // Registrar como AJUSTE positivo (entrada inicial)
-      await InventarioModelo.registrarBitacora(conexion, {
-        idProducto:         id_producto,
-        idUbicacionDestino: id_ubicacion,
-        tipo:               'AJUSTE',
-        cantidad,
-        motivo:             motivo || 'Creación de inventario',
-        usuario:            usuario || 'sistema'
-      });
+      if (cantidad > 0) {
+        await InventarioModelo.registrarBitacora(conexion, {
+          idProducto:         id_producto,
+          idUbicacionDestino: id_ubicacion,
+          tipo:               'AJUSTE',
+          cantidad,
+          motivo:             motivo || 'Creación de inventario',
+          usuario:            usuario || 'sistema'
+        });
+      }
 
       await conexion.commit();
       return {
         id_producto,
         id_ubicacion,
         cantidad_actual: cantidad,
+        punto_reorden,
         stock_minimo,
         stock_maximo
       };
@@ -186,10 +195,13 @@ class InventarioServicio {
     }
   }
 
-  // PATCH: /edit-inventory  (solo stock_min/max y/o id_ubicacion; NO cantidad)
-  static async editarInventario({ id_inventario, stock_minimo = null, stock_maximo = null, id_ubicacion = null, motivo, usuario }) {
+  // PATCH: /edit-inventory  (punto_reorden / stock_min/max / id_ubicacion; NO cantidad)
+  static async editarInventario({ id_inventario, punto_reorden = null, stock_minimo = null, stock_maximo = null, id_ubicacion = null, motivo, usuario }) {
     if (!Number.isInteger(id_inventario) || id_inventario <= 0) {
       throw new Error('id_inventario inválido');
+    }
+    if (punto_reorden != null && (!Number.isInteger(punto_reorden) || punto_reorden < 0)) {
+      throw new Error('punto_reorden debe ser un entero >= 0');
     }
     if (stock_minimo != null && (!Number.isInteger(stock_minimo) || stock_minimo < 0)) {
       throw new Error('stock_minimo debe ser un entero >= 0');
@@ -208,10 +220,16 @@ class InventarioServicio {
       const filaInventario = await InventarioModelo.obtenerFilaPorId(conexion, id_inventario, true);
       if (!filaInventario) throw new Error('Inventario no existe');
 
-      const ubicacionAnterior = filaInventario.id_ubicacion;
-      let ubicacionFinal = ubicacionAnterior;
+      const minimoComparar = stock_minimo != null ? stock_minimo : filaInventario.stock_minimo;
+      const maximoComparar = stock_maximo != null ? stock_maximo : filaInventario.stock_maximo;
+      if (punto_reorden != null) {
+        if (minimoComparar != null && punto_reorden < minimoComparar)
+          throw new Error('punto_reorden no puede ser menor que stock_minimo');
+        if (maximoComparar != null && punto_reorden > maximoComparar)
+          throw new Error('punto_reorden no puede ser mayor que stock_maximo');
+      }
 
-      // Si cambia la ubicación, validar destino
+      const ubicacionAnterior = filaInventario.id_ubicacion;
       if (id_ubicacion != null && id_ubicacion !== ubicacionAnterior) {
         const metaUbicacionDestino = await InventarioModelo.obtenerUbicacionPorId(id_ubicacion);
         if (!metaUbicacionDestino) throw new Error('Ubicación destino no existe');
@@ -219,19 +237,16 @@ class InventarioServicio {
         if (metaUbicacionDestino.capacidad != null && filaInventario.cantidad_actual > metaUbicacionDestino.capacidad) {
           throw new Error('Capacidad de destino excedida');
         }
-
-        // Evitar duplicado usando la restricción UNIQUE (capturamos ER_DUP_ENTRY abajo)
-        ubicacionFinal = id_ubicacion;
       }
 
       await InventarioModelo.editarInventario(conexion, {
         idInventario: id_inventario,
+        puntoReorden: punto_reorden,
         stockMinimo:  stock_minimo,
         stockMaximo:  stock_maximo,
         idUbicacion:  id_ubicacion
       });
 
-      // Bitácora: solo si cambió la ubicación y hay stock > 0
       const cambioUbicacion = id_ubicacion != null && id_ubicacion !== ubicacionAnterior;
       if (cambioUbicacion && filaInventario.cantidad_actual > 0) {
         await InventarioModelo.registrarBitacora(conexion, {
@@ -248,7 +263,7 @@ class InventarioServicio {
       await conexion.commit();
 
       const [[inventarioActualizado]] = await conexionBD.query(
-        `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, stock_minimo, stock_maximo
+        `SELECT id_inventario, id_producto, id_ubicacion, cantidad_actual, punto_reorden, stock_minimo, stock_maximo
          FROM inventario WHERE id_inventario=?`,
         [id_inventario]
       );
@@ -265,7 +280,7 @@ class InventarioServicio {
     }
   }
 
-  // POST: /transfer
+  // POST: /transfer (sin cambios de negocio)
   static async transferir({ id_producto, id_origen, id_destino, cantidad, motivo, usuario }) {
     if (!Number.isInteger(id_producto) || !Number.isInteger(id_origen) || !Number.isInteger(id_destino)) {
       throw new Error('id_producto, id_origen y id_destino son obligatorios');
@@ -294,7 +309,6 @@ class InventarioServicio {
     try {
       await conexion.beginTransaction();
 
-      // Bloqueo consistente de filas para evitar interbloqueos
       const [primeraUbicacion, segundaUbicacion] =
         id_origen < id_destino ? [id_origen, id_destino] : [id_destino, id_origen];
 
@@ -318,9 +332,7 @@ class InventarioServicio {
         throw new Error('Capacidad de destino excedida');
       }
 
-      if (!filaOrigen) {
-        throw new Error('No existe inventario en origen');
-      }
+      if (!filaOrigen) throw new Error('No existe inventario en origen');
       await InventarioModelo.actualizarSoloCantidad(conexion, filaOrigen.id_inventario, cantidadEnOrigen - cantidad);
 
       if (filaDestino) {
@@ -330,6 +342,7 @@ class InventarioServicio {
           idProducto:  id_producto,
           idUbicacion: id_destino,
           cantidad:    nuevaCantidadDestino,
+          puntoReorden: null,
           stockMinimo: null,
           stockMaximo: null
         });
