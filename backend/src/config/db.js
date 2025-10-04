@@ -14,9 +14,7 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    ssl: { // <-- ¡Muy bien! Mantenemos esto para la conexión a Railway.
-        rejectUnauthorized: false
-    }
+    ssl: false
 });
 
 // Probamos la conexión para confirmar que todo funciona al arrancar.
