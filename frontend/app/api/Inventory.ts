@@ -46,6 +46,7 @@ export class InventoryApi {
         cantidad: number;
         stock_minimo?: number;
         stock_maximo?: number;
+        punto_reorden?: number;
     }) {
         const response = await apiClient.post(`${this.ENDPOINT}/create-inventory`, payload);
         return response.data;
@@ -59,6 +60,14 @@ export class InventoryApi {
         motivo: string;
     }) {
         const response = await apiClient.post(`${this.ENDPOINT}/adjust`, payload);
+        return response.data;
+    }
+
+    static async editInventory(payload: {
+        id_inventario: number;
+        punto_reorden: number;
+    }) {
+        const response = await apiClient.patch(`${this.ENDPOINT}/edit-inventory`, payload);
         return response.data;
     }
 }

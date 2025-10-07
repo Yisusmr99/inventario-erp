@@ -19,8 +19,8 @@ import {
 import UserMenu from '../comunes/UserMenu';
 
 const navigationItems = [
-    // { name: 'Dashboard', href: '/', icon: HomeIcon },
-    // { name: 'Inventario', href: '/inventory', icon: FolderIcon },
+    { name: 'Dashboard', href: '/', icon: HomeIcon },
+    { name: 'Ubicaciones', href: '/inventory/locations', icon: FolderIcon },
     { 
         name: 'Productos', 
         icon: DocumentDuplicateIcon,
@@ -32,14 +32,6 @@ const navigationItems = [
     // { name: 'Proveedores', href: '/suppliers', icon: UsersIcon },
     // { name: 'Reportes', href: '/reports', icon: ChartPieIcon },
     // { name: 'Calendario', href: '/calendar', icon: CalendarIcon },
-
-      {
-    name: 'Inventario',
-    icon: FolderIcon,
-    children: [
-      { name: 'Ubicaciones', href: '/inventory/locations', icon: HomeIcon },
-    ]
-  },
 ]
 
 function classNames(...classes: string[]) {
@@ -74,8 +66,32 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
         const isActive = (href: string) =>
             location.pathname === href || (href !== '/' && location.pathname.startsWith(href));
 
-        const isItemActive = item.children?.some((child: any) => isActive(child.href));
-        // const isItemActive = true;
+        // Handle both simple items and items with children
+        if (!item.children) {
+            return (
+                <Link
+                    to={item.href}
+                    className={classNames(
+                        isActive(item.href)
+                            ? 'bg-gray-50 text-indigo-600'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
+                        'group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm font-semibold',
+                    )}
+                >
+                    <item.icon
+                        aria-hidden="true"
+                        className={classNames(
+                            isActive(item.href) ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
+                            'h-6 w-6 shrink-0',
+                        )}
+                    />
+                    {item.name}
+                </Link>
+            );
+        }
+
+        // For items with children (dropdown menu)
+        const isItemActive = item.children.some((child: any) => isActive(child.href));
 
         return (
             <Disclosure as="div" defaultOpen={true}>

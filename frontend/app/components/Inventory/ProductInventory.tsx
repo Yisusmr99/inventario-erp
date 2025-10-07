@@ -19,6 +19,7 @@ interface InventoryData {
     cantidad_actual: number;
     stock_minimo: number;
     stock_maximo: number;
+    punto_reorden: number;
     id_ubicacion: number;
 }
 
@@ -39,6 +40,7 @@ export default function ProductInventory({ open, onClose, onSave }: Props) {
         cantidad_actual: 0,
         stock_minimo: 0,
         stock_maximo: 0,
+        punto_reorden: 0,
         id_ubicacion: 0
     });
 
@@ -71,6 +73,7 @@ export default function ProductInventory({ open, onClose, onSave }: Props) {
             cantidad_actual: 0,
             stock_minimo: 0,
             stock_maximo: 0,
+            punto_reorden: 0,
             id_ubicacion: 0
         });
         setSelectedProduct(null);
@@ -305,6 +308,23 @@ export default function ProductInventory({ open, onClose, onSave }: Props) {
                                                 min="0"
                                                 value={inventoryData.stock_maximo}
                                                 onChange={(e) => handleInputChange('stock_maximo', parseInt(e.target.value) || 0)}
+                                                className={styleInput}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="punto_reorden" className="block text-sm font-medium leading-6 text-gray-900">
+                                            Punto de Reorden
+                                        </label>
+                                        <div className="mt-2">
+                                            <input
+                                                type="number"
+                                                name="punto_reorden"
+                                                id="punto_reorden"
+                                                min="0"
+                                                value={inventoryData.punto_reorden}
+                                                onChange={(e) => handleInputChange('punto_reorden', parseInt(e.target.value) || 0)}
                                                 className={styleInput}
                                             />
                                         </div>
