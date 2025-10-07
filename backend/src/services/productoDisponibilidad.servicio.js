@@ -1,7 +1,7 @@
-// src/services/productoDisponibilidad.servicio.js
 const ProductoDisponibilidadModelo = require('../models/productoDisponibilidad.modelo');
 
 class ProductoDisponibilidadServicio {
+
   static async listarDisponiblesSimple(parametros) {
     const { pagina, limite, conStock, orden } = parametros;
 
@@ -15,13 +15,23 @@ class ProductoDisponibilidadServicio {
     });
 
     return {
-      productos,                    
+      productos,
       total,
       pagina: paginaEfectiva,
       totalPaginas,
       tieneSiguiente: paginaEfectiva < totalPaginas,
       tieneAnterior: paginaEfectiva > 1
     };
+  }
+
+
+  static async listarDisponiblesSinPaginacion({ conStock, orden }) {
+    return ProductoDisponibilidadModelo.listarDisponiblesSinPaginacion({ conStock, orden });
+  }
+
+  // NUEVO: sin paginación + ubicaciones
+  static async listarDisponiblesConUbicaciones({ conStock, orden }) {
+    return ProductoDisponibilidadModelo.listarDisponiblesConUbicaciones({ conStock, orden });
   }
 }
 
