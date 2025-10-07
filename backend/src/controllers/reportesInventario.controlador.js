@@ -2,6 +2,7 @@
 const ReportesInventarioServicio = require('../services/reportesInventario.servicio');
 
 /* --------------------------- NIVELES --------------------------- */
+// Mantiene objeto con paginación dentro de data
 async function niveles(req, res) {
   try {
     const respuesta = await ReportesInventarioServicio.obtenerNiveles({
@@ -19,7 +20,7 @@ async function niveles(req, res) {
       success: true,
       status: 200,
       message: 'OK',
-      data: respuesta,
+      data: respuesta, // { paginacion, productos }
     });
   } catch (error) {
     return res.status(400).json({
@@ -32,7 +33,7 @@ async function niveles(req, res) {
 }
 
 /* ------------------------ TOP MOVIMIENTOS (NO TOCAR) ----------------------- */
-
+// Devuelve array en data (como ya lo tenías)
 async function topMovers(req, res) {
   try {
     const datos = await ReportesInventarioServicio.obtenerTopMovimientos({
@@ -46,7 +47,7 @@ async function topMovers(req, res) {
       success: true,
       status: 200,
       message: 'OK',
-      data: datos,
+      data: datos, // array
     });
   } catch (error) {
     return res.status(400).json({
@@ -59,7 +60,7 @@ async function topMovers(req, res) {
 }
 
 /* --------------------------- SLOW MOVERS ------------------------- */
-
+// Devuelve array en data (sin paginación, excluye top rápidos)
 async function slowMovers(req, res) {
   try {
     const conStock = ['1', 'true', 'si', 'sí'].includes(
@@ -72,8 +73,12 @@ async function slowMovers(req, res) {
       excluirTop,
     });
 
-    // <- SOLO ARRAY
-    return res.status(200).json(items);
+    return res.status(200).json({
+      success: true,
+      status: 200,
+      message: 'OK',
+      data: items, // array
+    });
   } catch (error) {
     return res.status(400).json({
       success: false,
@@ -85,7 +90,7 @@ async function slowMovers(req, res) {
 }
 
 /* --------------------------- FAST MOVERS ------------------------- */
-
+// Devuelve array en data (top N por ventas acumuladas)
 async function fastMovers(req, res) {
   try {
     const limite = Number(req.query.limite ?? 10) || 10;
@@ -98,8 +103,12 @@ async function fastMovers(req, res) {
       conStock,
     });
 
-  
-    return res.status(200).json(items);
+    return res.status(200).json({
+      success: true,
+      status: 200,
+      message: 'OK',
+      data: items, // array
+    });
   } catch (error) {
     return res.status(400).json({
       success: false,
