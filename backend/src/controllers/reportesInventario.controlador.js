@@ -32,6 +32,7 @@ async function niveles(req, res) {
 }
 
 /* ------------------------ TOP MOVIMIENTOS (NO TOCAR) ----------------------- */
+
 async function topMovers(req, res) {
   try {
     const datos = await ReportesInventarioServicio.obtenerTopMovimientos({
@@ -57,6 +58,7 @@ async function topMovers(req, res) {
   }
 }
 
+/* --------------------------- SLOW MOVERS ------------------------- */
 
 async function slowMovers(req, res) {
   try {
@@ -65,17 +67,13 @@ async function slowMovers(req, res) {
     );
     const excluirTop = Number(req.query.excluir_top ?? req.query.limite ?? 10) || 10;
 
-    const productos = await ReportesInventarioServicio.obtenerProductosLentos({
+    const items = await ReportesInventarioServicio.obtenerProductosLentos({
       conStock,
       excluirTop,
     });
 
-    return res.status(200).json({
-      success: true,
-      status: 200,
-      message: 'OK',
-      data: { productos }, // [{ id_producto, nombre, unidades_vendidas }]
-    });
+    // <- SOLO ARRAY
+    return res.status(200).json(items);
   } catch (error) {
     return res.status(400).json({
       success: false,
@@ -86,25 +84,22 @@ async function slowMovers(req, res) {
   }
 }
 
+/* --------------------------- FAST MOVERS ------------------------- */
 
 async function fastMovers(req, res) {
   try {
-    const limite = Number(req.query.limite ?? 10) || 10; // top N
+    const limite = Number(req.query.limite ?? 10) || 10;
     const conStock = ['1', 'true', 'si', 'sí'].includes(
       String(req.query.con_stock || '').toLowerCase()
     );
 
-    const productos = await ReportesInventarioServicio.obtenerProductosRapidos({
+    const items = await ReportesInventarioServicio.obtenerProductosRapidos({
       limite,
       conStock,
     });
 
-    return res.status(200).json({
-      success: true,
-      status: 200,
-      message: 'OK',
-      data: { productos }, // [{ id_producto, nombre, unidades_vendidas }]
-    });
+  
+    return res.status(200).json(items);
   } catch (error) {
     return res.status(400).json({
       success: false,
