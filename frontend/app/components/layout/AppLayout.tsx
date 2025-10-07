@@ -21,6 +21,7 @@ import UserMenu from '../comunes/UserMenu';
 const navigationItems = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
     { name: 'Ubicaciones', href: '/inventory/locations', icon: FolderIcon },
+    { name: 'Proveedores', href: '/proveedores', icon: UsersIcon },
     { 
         name: 'Productos', 
         icon: DocumentDuplicateIcon,
@@ -29,7 +30,7 @@ const navigationItems = [
             { name: 'Catálogo', href: '/products/catalog', icon: RectangleStackIcon },
         ]
     },
-    // { name: 'Proveedores', href: '/suppliers', icon: UsersIcon },
+  
     // { name: 'Reportes', href: '/reports', icon: ChartPieIcon },
     // { name: 'Calendario', href: '/calendar', icon: CalendarIcon },
 ]
