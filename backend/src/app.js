@@ -9,6 +9,7 @@ const productCategoryRoutes = require('./routes/productCategoryRoutes');
 const testRoutes = require('./routes/testRoutes');
 const rutasInventario = require('./routes/inventario.rutas');
 const rutasReportes = require('./routes/reportes.rutas');
+const rutasComercio = require('./routes/comercio.rutas');
 
 
 // Opciones de CORS
@@ -36,6 +37,7 @@ app.use('/api/ubicaciones', require('./routes/ubicacionRoutes'));
 app.use('/api/test', testRoutes);
 app.use('/api/inventory', rutasInventario);
 app.use('/api/reports', rutasReportes);
+app.use('/api/commerce', rutasComercio);
 
 
 
