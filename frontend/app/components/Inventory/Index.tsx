@@ -5,6 +5,7 @@ import { InventoryApi } from '~/api/Inventory';
 import InventoryTable from './InventoryTable';
 import ProductInventory from './ProductInventory';
 import StockModal from './StockModal';
+import ReorderPointModal from './ReorderPointModal';
 import SearchBar from './SearchBar';
 
 
@@ -17,6 +18,7 @@ export default function InventoryIndex() {
     const [searchTerm, setSearchTerm] = useState("");
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
+    const [showReorderPointModal, setShowReorderPointModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
 
 
@@ -73,6 +75,7 @@ export default function InventoryIndex() {
                 cantidad: inventoryData.cantidad_actual,
                 stock_minimo: inventoryData.stock_minimo,
                 stock_maximo: inventoryData.stock_maximo,
+                punto_reorden: inventoryData.punto_reorden,
             });
             
             toast.success('Inventario creado exitosamente');
@@ -129,6 +132,34 @@ export default function InventoryIndex() {
         }
     };
 
+    const handleEditReorderPoint = (item: any) => {
+        setSelectedItem(item);
+        setShowReorderPointModal(true);
+    };
+
+    const handleCloseReorderPointModal = () => {
+        setShowReorderPointModal(false);
+        setSelectedItem(null);
+    };
+
+    const handleSaveReorderPoint = async (id_inventario: number, punto_reorden: number) => {
+        try {
+            await InventoryApi.editInventory({
+                id_inventario,
+                punto_reorden,
+            });
+            
+            toast.success('Punto de reorden actualizado exitosamente');
+            
+            // Reload inventory data
+            loadInventory(currentPage, searchTerm);
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || 'Error al actualizar el punto de reorden';
+            toast.error(errorMessage);
+            throw error;
+        }
+    };
+
 
 
 
@@ -167,6 +198,7 @@ export default function InventoryIndex() {
                 data={paginationData?.products || []}
                 isLoading={isLoading}
                 onAddStock={handleAddStock}
+                onEditReorderPoint={handleEditReorderPoint}
             />
 
             {/* Pagination */}
@@ -251,6 +283,14 @@ export default function InventoryIndex() {
                 onClose={handleCloseStockModal}
                 item={selectedItem}
                 onSubmit={handleUpdateStock}
+            />
+
+            {/* Reorder Point Modal */}
+            <ReorderPointModal
+                isOpen={showReorderPointModal}
+                onClose={handleCloseReorderPointModal}
+                item={selectedItem}
+                onSave={handleSaveReorderPoint}
             />
 
         </div>

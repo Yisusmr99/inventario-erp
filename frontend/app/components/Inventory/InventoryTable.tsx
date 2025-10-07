@@ -1,7 +1,8 @@
 'use client';
 
 import { memo } from 'react';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowsUpDownIcon } from '@heroicons/react/20/solid';
 
 interface InventoryItem {
     id_inventario: number;
@@ -10,6 +11,7 @@ interface InventoryItem {
     cantidad_actual: number;
     stock_minimo: number | null;
     stock_maximo: number | null;
+    punto_reorden: number | null;
     nombre_producto: string;
     codigo_producto: string;
     nombre_ubicacion: string;
@@ -22,13 +24,15 @@ interface InventoryTableProps {
     isLoading: boolean;
     error?: string | null;
     onAddStock?: (item: InventoryItem) => void;
+    onEditReorderPoint?: (item: InventoryItem) => void;
 }
 
 const InventoryTable = memo(function InventoryTable({ 
     data, 
     isLoading, 
     error,
-    onAddStock
+    onAddStock,
+    onEditReorderPoint
 }: InventoryTableProps) {
     const getStockStatus = (cantidad: number, minimo: number | null, maximo: number | null) => {
         if (minimo && cantidad <= minimo) {
@@ -50,6 +54,7 @@ const InventoryTable = memo(function InventoryTable({
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Ubicación</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Cantidad Actual</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Stock Mín/Máx</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">Punto Reorden</th>
                         <th className="px-4 py-3 text-left font-medium text-gray-700">Estado</th>
                         <th className="px-4 py-3 text-right font-medium text-gray-700">Acciones</th>
                     </tr>
@@ -87,22 +92,35 @@ const InventoryTable = memo(function InventoryTable({
                                     <td className="px-4 py-3 text-gray-600">
                                         {item.stock_minimo ?? '—'} / {item.stock_maximo ?? '—'}
                                     </td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {item.punto_reorden ?? '—'}
+                                    </td>
                                     <td className="px-4 py-3">
                                         <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${stockStatus.color}`}>
                                             {stockStatus.status}
                                         </span>
                                     </td>
                                     <td className="py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-6">
-                                        {onAddStock && (
-                                            <button
-                                                className="inline-flex items-center rounded-md border border-green-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-                                                onClick={() => onAddStock(item)}
-                                                title="Agregar/Restar Stock"
-                                            >
-                                                <PlusIcon className="h-4 w-4 mr-1" />
-                                                Stock
-                                            </button>
-                                        )}
+                                        <div className="flex justify-end gap-2">
+                                            {onAddStock && (
+                                                <button
+                                                    className="inline-flex items-center rounded-md border border-green-300 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                                                    onClick={() => onAddStock(item)}
+                                                    title="Agregar/Restar Stock"
+                                                >
+                                                    <ArrowsUpDownIcon className="h-4 w-4 mr-1" />
+                                                </button>
+                                            )}
+                                            {onEditReorderPoint && (
+                                                <button
+                                                    className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                                                    onClick={() => onEditReorderPoint(item)}
+                                                    title="Editar Punto de Reorden"
+                                                >
+                                                    <PencilSquareIcon className="h-4 w-4 mr-1" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );
