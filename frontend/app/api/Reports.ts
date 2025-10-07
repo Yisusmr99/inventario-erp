@@ -6,6 +6,7 @@ export interface FastMover {
   stock_total: number;
   fecha_ultimo_movimiento: string;
   dias_sin_movimiento: number;
+  unidades_vendidas: number;
 }
 
 export interface SlowMover {
@@ -14,6 +15,7 @@ export interface SlowMover {
   stock_total: number;
   fecha_ultimo_movimiento: string;
   dias_sin_movimiento: number;
+  unidades_vendidas: number;
 }
 
 export interface TopMover {
