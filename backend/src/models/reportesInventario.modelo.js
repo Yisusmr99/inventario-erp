@@ -2,9 +2,6 @@
 const conexionBD = require('../config/db');
 
 class ReportesInventarioModelo {
-  /* ======================================================================
-   *  NIVELES (stock y valor actual por producto; opcional por ubicación)
-   * ==================================================================== */
 
   static aOrdenNiveles(orden) {
     switch (orden) {
@@ -17,7 +14,6 @@ class ReportesInventarioModelo {
     }
   }
 
-  /** Cuenta productos para paginación (filtros: categoría/ubicación/solo con stock). */
   static async contarNiveles({ idCategoria, idUbicacion, conStock }) {
     let expresionStockMostrar = 'COALESCE(SUM(i.cantidad_actual),0)';
     const condicionesProducto = ['p.estado = 1'];
@@ -55,7 +51,6 @@ class ReportesInventarioModelo {
     return Number(fila?.total || 0);
   }
 
-  /** Lista productos con stock_total, stock_mostrar y valor_total (paginado y ordenado). */
   static async listarNiveles({
     offset,
     limit,
@@ -106,10 +101,6 @@ class ReportesInventarioModelo {
     return filas;
   }
 
-  /* ======================================================================
-   *  TOP MOVIMIENTOS (según bitácora AJUSTE en rango de fechas)  **NO TOCAR**
-   *  tipo: 'ventas' (negativos), 'compras' (positivos), 'neto' (ambos)
-   * ==================================================================== */
   static async topMovimientos({ fechaDesde, fechaHasta, limite, tipo }) {
     let condicionSigno = '';
     if (tipo === 'ventas')  condicionSigno = 'AND b.cantidad < 0';
@@ -140,32 +131,35 @@ class ReportesInventarioModelo {
     }));
   }
 
-  /* ======================================================================
-   *  SLOW MOVERS (incluye SIN MOVIMIENTO) — excluye TOP rápidos
-   *  - NO devuelve stock
-   *  - conStock: si true, filtra por stock actual > 0
-   *  - excluirTop: cuántos del top rápidos excluir (default 10)
-   * ==================================================================== */
   static async productosLentos({ conStock, excluirTop = 10 }) {
     const sql = `
       SELECT
         p.id_producto,
         p.nombre,
-        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas
+        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas,
+        COALESCE(s.stock_total, 0)        AS stock_total,
+        ult.fecha_ultimo_movimiento       AS fecha_ultimo_movimiento,
+        DATEDIFF(CURDATE(), ult.fecha_ultimo_movimiento) AS dias_sin_movimiento
       FROM Producto p
-      /* Ventas acumuladas (negativas => unidades vendidas) */
+      /* Ventas acumuladas (negativos => unidades vendidas) */
       LEFT JOIN (
         SELECT b.id_producto, SUM(-b.cantidad) AS unidades_vendidas
         FROM bitacora_inventario b
         WHERE b.cantidad < 0
         GROUP BY b.id_producto
       ) v ON v.id_producto = p.id_producto
-      /* Stock solo para filtrar cuando con_stock=1 (no se devuelve) */
+      /* Stock actual */
       LEFT JOIN (
         SELECT i.id_producto, COALESCE(SUM(i.cantidad_actual),0) AS stock_total
         FROM inventario i
         GROUP BY i.id_producto
       ) s ON s.id_producto = p.id_producto
+      /* ÚLTIMO MOVIMIENTO (cualquier tipo) */
+      LEFT JOIN (
+        SELECT b.id_producto, MAX(b.created_at) AS fecha_ultimo_movimiento
+        FROM bitacora_inventario b
+        GROUP BY b.id_producto
+      ) ult ON ult.id_producto = p.id_producto
       /* Top rápidos a excluir (top N por ventas desc) */
       LEFT JOIN (
         SELECT id_producto
@@ -191,20 +185,22 @@ class ReportesInventarioModelo {
       id_producto: r.id_producto,
       nombre: r.nombre,
       unidades_vendidas: Number(r.unidades_vendidas || 0),
+      stock_total: Number(r.stock_total || 0),
+      fecha_ultimo_movimiento: r.fecha_ultimo_movimiento,
+      dias_sin_movimiento:
+        r.fecha_ultimo_movimiento == null ? null : Number(r.dias_sin_movimiento || 0),
     }));
   }
 
-  /* ======================================================================
-   *  FAST MOVERS (Top N por ventas acumuladas)
-   *  - NO devuelve stock
-   *  - conStock: si true, filtra por stock actual > 0
-   * ==================================================================== */
   static async productosRapidos({ limite = 10, conStock }) {
     const sql = `
       SELECT
         p.id_producto,
         p.nombre,
-        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas
+        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas,
+        COALESCE(s.stock_total, 0)        AS stock_total,
+        ult.fecha_ultimo_movimiento       AS fecha_ultimo_movimiento,
+        DATEDIFF(CURDATE(), ult.fecha_ultimo_movimiento) AS dias_sin_movimiento
       FROM Producto p
       LEFT JOIN (
         SELECT b.id_producto, SUM(-b.cantidad) AS unidades_vendidas
@@ -212,12 +208,17 @@ class ReportesInventarioModelo {
         WHERE b.cantidad < 0
         GROUP BY b.id_producto
       ) v ON v.id_producto = p.id_producto
-      /* Stock solo para filtrar cuando con_stock=1 (no se devuelve) */
       LEFT JOIN (
         SELECT i.id_producto, COALESCE(SUM(i.cantidad_actual),0) AS stock_total
         FROM inventario i
         GROUP BY i.id_producto
       ) s ON s.id_producto = p.id_producto
+      /* ÚLTIMO MOVIMIENTO (cualquier tipo) */
+      LEFT JOIN (
+        SELECT b.id_producto, MAX(b.created_at) AS fecha_ultimo_movimiento
+        FROM bitacora_inventario b
+        GROUP BY b.id_producto
+      ) ult ON ult.id_producto = p.id_producto
       WHERE p.estado = 1
         AND COALESCE(v.unidades_vendidas,0) > 0
         ${conStock ? 'AND COALESCE(s.stock_total,0) > 0' : ''}
@@ -230,6 +231,10 @@ class ReportesInventarioModelo {
       id_producto: r.id_producto,
       nombre: r.nombre,
       unidades_vendidas: Number(r.unidades_vendidas || 0),
+      stock_total: Number(r.stock_total || 0),
+      fecha_ultimo_movimiento: r.fecha_ultimo_movimiento,
+      dias_sin_movimiento:
+        r.fecha_ultimo_movimiento == null ? null : Number(r.dias_sin_movimiento || 0),
     }));
   }
 }
