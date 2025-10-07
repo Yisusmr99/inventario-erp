@@ -46,7 +46,7 @@ const ReportesInventarioServicio = {
     };
   },
 
-  /* --------------------- TOP MOVIMIENTOS --------------------- */
+  /* --------------------- TOP MOVIMIENTOS (NO TOCAR) --------------------- */
   async obtenerTopMovimientos({ desde, hasta, tipo = 'neto', limite = 10 }) {
     const fechaDesde = String(desde);
     const fechaHasta = String(hasta);
@@ -64,21 +64,17 @@ const ReportesInventarioServicio = {
   },
 
   /* --------------------- SLOW / FAST MOVERS ------------------ */
-  async obtenerProductosLentos({ limite = 20, conStock = false }) {
-    const limiteNumero = Math.max(1, Number(limite));
-    const soloConStock = !!conStock;
+  async obtenerProductosLentos({ conStock = false, excluirTop = 10 }) {
     return ReportesInventarioModelo.productosLentos({
-      limite: limiteNumero,
-      conStock: soloConStock,
+      conStock: !!conStock,
+      excluirTop: Math.max(1, Number(excluirTop) || 10),
     });
   },
 
-  async obtenerProductosRapidos({ limite = 20, conStock = false }) {
-    const limiteNumero = Math.max(1, Number(limite));
-    const soloConStock = !!conStock;
+  async obtenerProductosRapidos({ limite = 10, conStock = false }) {
     return ReportesInventarioModelo.productosRapidos({
-      limite: limiteNumero,
-      conStock: soloConStock,
+      limite: Math.max(1, Number(limite) || 10),
+      conStock: !!conStock,
     });
   },
 };
