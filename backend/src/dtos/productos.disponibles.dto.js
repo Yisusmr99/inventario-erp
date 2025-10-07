@@ -12,9 +12,17 @@ function aBooleanOpcional(valor) {
   return ['1', 'true', 'sí', 'si', 'yes'].includes(s);
 }
 
+function normalizarOrden(orden) {
+  const o = String(orden || 'stock_desc').trim();
+  const permitidos = new Set(['stock_desc', 'stock_asc', 'nombre_asc']);
+  if (!permitidos.has(o)) {
+    throw new Error('orden inválido. Use: stock_desc | stock_asc | nombre_asc');
+  }
+  return o;
+}
+
 class ListarDisponiblesSimpleDto {
-  // GET /api/commerce/products/available
-  // Query: pagina|page, limite|limit, con_stock|solo_con_stock, orden
+  // GET /api/commerce/products/available (paginado)
   static validate(query = {}) {
     const pagina = aEnteroOpcional(query.pagina ?? query.page, 'pagina') ?? 1;
     const limite = aEnteroOpcional(query.limite ?? query.limit, 'limite') ?? 10;
@@ -23,13 +31,7 @@ class ListarDisponiblesSimpleDto {
     if (limite <= 0 || limite > 200) throw new Error('limite debe estar entre 1 y 200');
 
     const conStock = aBooleanOpcional(query.con_stock ?? query.solo_con_stock);
-    const orden = String(query.orden || 'stock_desc').trim();
-
-    // normalizar a valores permitidos
-    const ordenPermitido = new Set(['stock_desc', 'stock_asc', 'nombre_asc']);
-    if (!ordenPermitido.has(orden)) {
-      throw new Error('orden inválido. Use: stock_desc | stock_asc | nombre_asc');
-    }
+    const orden = normalizarOrden(query.orden);
 
     return {
       pagina,
@@ -40,6 +42,21 @@ class ListarDisponiblesSimpleDto {
   }
 }
 
+// Nuevo DTO para endpoints SIN paginación
+class ListarSinPaginacionDto {
+  // GET /api/commerce/products/available/all
+  // GET /api/commerce/products/available/with-locations
+  static validate(query = {}) {
+    const conStock = aBooleanOpcional(query.con_stock ?? query.solo_con_stock);
+    const orden = normalizarOrden(query.orden);
+    return {
+      conStock: conStock === null ? false : conStock,
+      orden
+    };
+  }
+}
+
 module.exports = {
   ListarDisponiblesSimpleDto,
+  ListarSinPaginacionDto
 };

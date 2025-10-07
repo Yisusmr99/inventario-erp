@@ -1,14 +1,14 @@
 const Servicio = require('../services/productoDisponibilidad.servicio');
-const { ListarDisponiblesSimpleDto } = require('../dtos/productos.disponibles.dto');
+const {
+  ListarDisponiblesSimpleDto,
+  ListarSinPaginacionDto
+} = require('../dtos/productos.disponibles.dto');
 
 exports.getDisponibles = async (req, res) => {
   try {
-    // VALIDACIÓN simple (pagina, limite, con_stock, orden)
     const parametros = ListarDisponiblesSimpleDto.validate(req.query);
-
     const resultado = await Servicio.listarDisponiblesSimple(parametros);
 
-    // Respuesta compacta y clara
     res.json({
       success: true,
       status: 200,
@@ -21,7 +21,57 @@ exports.getDisponibles = async (req, res) => {
           tiene_siguiente: resultado.tieneSiguiente,
           tiene_anterior: resultado.tieneAnterior
         },
-        productos: resultado.productos  // [{ id_producto, nombre, stock_total }]
+        productos: resultado.productos // [{ id_producto, nombre, stock_total }]
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      status: 400,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+
+exports.getDisponiblesSinPaginacion = async (req, res) => {
+  try {
+    const parametros = ListarSinPaginacionDto.validate(req.query);
+    const productos = await Servicio.listarDisponiblesSinPaginacion(parametros);
+    res.json({
+      success: true,
+      status: 200,
+      message: 'OK',
+      data: { productos } // [{ id_producto, nombre, stock_total }]
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      status: 400,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+
+exports.getDisponiblesConUbicaciones = async (req, res) => {
+  try {
+    const parametros = ListarSinPaginacionDto.validate(req.query);
+    const productos = await Servicio.listarDisponiblesConUbicaciones(parametros);
+    res.json({
+      success: true,
+      status: 200,
+      message: 'OK',
+      data: {
+        productos
+        // [
+        //   {
+        //     id_producto, nombre, stock_total,
+        //     ubicaciones: [{ id_ubicacion, nombre, stock }]
+        //   }
+        // ]
       }
     });
   } catch (error) {
