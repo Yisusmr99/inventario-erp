@@ -23,7 +23,6 @@ class ReportesInventarioModelo {
     const condicionesProducto = ['p.estado = 1'];
     const parametros = [];
 
-    // Si hay ubicación, la usamos en el SELECT (1 placeholder)
     if (idUbicacion != null) {
       expresionStockMostrar =
         'COALESCE(SUM(CASE WHEN i.id_ubicacion = ? THEN i.cantidad_actual ELSE 0 END),0)';
@@ -69,13 +68,11 @@ class ReportesInventarioModelo {
     const condicionesProducto = ['p.estado = 1'];
     const parametros = [];
 
-    // La expresión se usa DOS veces en el SELECT (stock_mostrar y valor_total),
-    // por eso si hay id_ubicacion debemos empujarla dos veces en el arreglo.
     if (idUbicacion != null) {
       expresionStockMostrar =
         'COALESCE(SUM(CASE WHEN i.id_ubicacion = ? THEN i.cantidad_actual ELSE 0 END),0)';
-      parametros.push(idUbicacion); // para stock_mostrar
-      parametros.push(idUbicacion); // para valor_total
+      parametros.push(idUbicacion); // stock_mostrar
+      parametros.push(idUbicacion); // valor_total
     }
 
     if (idCategoria != null) {
@@ -110,7 +107,7 @@ class ReportesInventarioModelo {
   }
 
   /* ======================================================================
-   *  TOP MOVIMIENTOS (según bitácora AJUSTE en rango de fechas)
+   *  TOP MOVIMIENTOS (según bitácora AJUSTE en rango de fechas)  **NO TOCAR**
    *  tipo: 'ventas' (negativos), 'compras' (positivos), 'neto' (ambos)
    * ==================================================================== */
   static async topMovimientos({ fechaDesde, fechaHasta, limite, tipo }) {
@@ -144,99 +141,95 @@ class ReportesInventarioModelo {
   }
 
   /* ======================================================================
-   *  SLOW MOVERS (poco movimiento; más días sin moverse primero)
-   *  Subconsulta para ordenar por alias de agregado sin errores.
+   *  SLOW MOVERS (incluye SIN MOVIMIENTO) — excluye TOP rápidos
+   *  - NO devuelve stock
+   *  - conStock: si true, filtra por stock actual > 0
+   *  - excluirTop: cuántos del top rápidos excluir (default 10)
    * ==================================================================== */
-  static async productosLentos({ limite, conStock }) {
-    const consultaSQL = `
+  static async productosLentos({ conStock, excluirTop = 10 }) {
+    const sql = `
       SELECT
-        resumen.id_producto,
-        resumen.nombre,
-        resumen.stock_total,
-        resumen.fecha_ultimo_movimiento,
-        resumen.dias_sin_movimiento
-      FROM (
-        SELECT
-          p.id_producto,
-          p.nombre,
-          COALESCE(SUM(i.cantidad_actual),0) AS stock_total,
-          MAX(CASE WHEN b.tipo = 'AJUSTE' THEN b.created_at ELSE NULL END) AS fecha_ultimo_movimiento,
-          DATEDIFF(
-            CURDATE(),
-            MAX(CASE WHEN b.tipo = 'AJUSTE' THEN b.created_at ELSE NULL END)
-          ) AS dias_sin_movimiento
-        FROM Producto p
-        LEFT JOIN inventario i ON i.id_producto = p.id_producto
-        LEFT JOIN bitacora_inventario b ON b.id_producto = p.id_producto
-        WHERE p.estado = 1
-        GROUP BY p.id_producto, p.nombre
-        ${conStock ? 'HAVING stock_total > 0' : ''}
-      ) AS resumen
+        p.id_producto,
+        p.nombre,
+        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas
+      FROM Producto p
+      /* Ventas acumuladas (negativas => unidades vendidas) */
+      LEFT JOIN (
+        SELECT b.id_producto, SUM(-b.cantidad) AS unidades_vendidas
+        FROM bitacora_inventario b
+        WHERE b.cantidad < 0
+        GROUP BY b.id_producto
+      ) v ON v.id_producto = p.id_producto
+      /* Stock solo para filtrar cuando con_stock=1 (no se devuelve) */
+      LEFT JOIN (
+        SELECT i.id_producto, COALESCE(SUM(i.cantidad_actual),0) AS stock_total
+        FROM inventario i
+        GROUP BY i.id_producto
+      ) s ON s.id_producto = p.id_producto
+      /* Top rápidos a excluir (top N por ventas desc) */
+      LEFT JOIN (
+        SELECT id_producto
+        FROM (
+          SELECT b.id_producto, SUM(-b.cantidad) AS unidades_vendidas
+          FROM bitacora_inventario b
+          WHERE b.cantidad < 0
+          GROUP BY b.id_producto
+          ORDER BY unidades_vendidas DESC
+          LIMIT ?
+        ) t_fast
+      ) f ON f.id_producto = p.id_producto
+      WHERE p.estado = 1
+        ${conStock ? 'AND COALESCE(s.stock_total,0) > 0' : ''}
+        AND f.id_producto IS NULL
       ORDER BY
-        (resumen.dias_sin_movimiento IS NULL) ASC,
-        resumen.dias_sin_movimiento DESC,
-        resumen.nombre ASC
-      LIMIT ?
+        COALESCE(v.unidades_vendidas, 0) ASC,
+        p.nombre ASC
     `;
+    const [rows] = await conexionBD.query(sql, [excluirTop]);
 
-    const [filas] = await conexionBD.query(consultaSQL, [limite]);
-
-    return filas.map(fila => ({
-      id_producto: fila.id_producto,
-      nombre: fila.nombre,
-      stock_total: Number(fila.stock_total || 0),
-      fecha_ultimo_movimiento: fila.fecha_ultimo_movimiento,
-      dias_sin_movimiento:
-        fila.dias_sin_movimiento == null ? null : Number(fila.dias_sin_movimiento),
+    return rows.map(r => ({
+      id_producto: r.id_producto,
+      nombre: r.nombre,
+      unidades_vendidas: Number(r.unidades_vendidas || 0),
     }));
   }
 
   /* ======================================================================
-   *  FAST MOVERS (movimiento más reciente; menos días sin moverse primero)
-   *  También en subconsulta para ordenar estable.
+   *  FAST MOVERS (Top N por ventas acumuladas)
+   *  - NO devuelve stock
+   *  - conStock: si true, filtra por stock actual > 0
    * ==================================================================== */
-  static async productosRapidos({ limite, conStock }) {
-    const consultaSQL = `
+  static async productosRapidos({ limite = 10, conStock }) {
+    const sql = `
       SELECT
-        resumen.id_producto,
-        resumen.nombre,
-        resumen.stock_total,
-        resumen.fecha_ultimo_movimiento,
-        resumen.dias_sin_movimiento
-      FROM (
-        SELECT
-          p.id_producto,
-          p.nombre,
-          COALESCE(SUM(i.cantidad_actual),0) AS stock_total,
-          MAX(CASE WHEN b.tipo = 'AJUSTE' THEN b.created_at ELSE NULL END) AS fecha_ultimo_movimiento,
-          DATEDIFF(
-            CURDATE(),
-            MAX(CASE WHEN b.tipo = 'AJUSTE' THEN b.created_at ELSE NULL END)
-          ) AS dias_sin_movimiento
-        FROM Producto p
-        LEFT JOIN inventario i ON i.id_producto = p.id_producto
-        LEFT JOIN bitacora_inventario b ON b.id_producto = p.id_producto
-        WHERE p.estado = 1
-        GROUP BY p.id_producto, p.nombre
-        ${conStock ? 'HAVING stock_total > 0' : ''}
-      ) AS resumen
-      ORDER BY
-        (resumen.dias_sin_movimiento IS NULL) ASC,
-        resumen.dias_sin_movimiento ASC,
-        resumen.fecha_ultimo_movimiento DESC,
-        resumen.nombre ASC
+        p.id_producto,
+        p.nombre,
+        COALESCE(v.unidades_vendidas, 0) AS unidades_vendidas
+      FROM Producto p
+      LEFT JOIN (
+        SELECT b.id_producto, SUM(-b.cantidad) AS unidades_vendidas
+        FROM bitacora_inventario b
+        WHERE b.cantidad < 0
+        GROUP BY b.id_producto
+      ) v ON v.id_producto = p.id_producto
+      /* Stock solo para filtrar cuando con_stock=1 (no se devuelve) */
+      LEFT JOIN (
+        SELECT i.id_producto, COALESCE(SUM(i.cantidad_actual),0) AS stock_total
+        FROM inventario i
+        GROUP BY i.id_producto
+      ) s ON s.id_producto = p.id_producto
+      WHERE p.estado = 1
+        AND COALESCE(v.unidades_vendidas,0) > 0
+        ${conStock ? 'AND COALESCE(s.stock_total,0) > 0' : ''}
+      ORDER BY v.unidades_vendidas DESC, p.nombre ASC
       LIMIT ?
     `;
+    const [rows] = await conexionBD.query(sql, [limite]);
 
-    const [filas] = await conexionBD.query(consultaSQL, [limite]);
-
-    return filas.map(fila => ({
-      id_producto: fila.id_producto,
-      nombre: fila.nombre,
-      stock_total: Number(fila.stock_total || 0),
-      fecha_ultimo_movimiento: fila.fecha_ultimo_movimiento,
-      dias_sin_movimiento:
-        fila.dias_sin_movimiento == null ? null : Number(fila.dias_sin_movimiento),
+    return rows.map(r => ({
+      id_producto: r.id_producto,
+      nombre: r.nombre,
+      unidades_vendidas: Number(r.unidades_vendidas || 0),
     }));
   }
 }
