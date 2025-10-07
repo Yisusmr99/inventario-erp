@@ -38,7 +38,7 @@ const FastMoversChart: React.FC = () => {
     datasets: [
       {
         label: 'Productos con Movimiento Rápido',
-        data: fastMovers.map(item => item.stock_total),
+        data: fastMovers.map(item => item.unidades_vendidas),
         backgroundColor: 'rgba(75, 192, 192, 0.6)',
         borderColor: 'rgba(75, 192, 192, 1)',
         borderWidth: 1,

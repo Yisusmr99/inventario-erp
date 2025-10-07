@@ -140,7 +140,7 @@ const TopMoversTable: React.FC<TopMoversTableProps> = ({
                     {item.unidades_movidas}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                    ${item.valor_movido.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Q{item.valor_movido.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}
