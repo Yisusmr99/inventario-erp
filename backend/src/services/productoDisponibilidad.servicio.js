@@ -33,6 +33,11 @@ class ProductoDisponibilidadServicio {
   static async listarDisponiblesConUbicaciones({ conStock, orden }) {
     return ProductoDisponibilidadModelo.listarDisponiblesConUbicaciones({ conStock, orden });
   }
+
+  // NUEVO: obtener disponibilidad de un producto específico con ubicaciones
+  static async obtenerDisponibilidadProductoConUbicaciones({ idProducto }) {
+    return ProductoDisponibilidadModelo.obtenerDisponibilidadProductoConUbicaciones({ idProducto });
+  }
 }
 
 module.exports = ProductoDisponibilidadServicio;

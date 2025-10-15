@@ -197,7 +197,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                                             </ul>
                                         </li>
                                         <li className="-mx-6 mt-auto">
-                                            {/* <UserMenu /> */}
+                                            <UserMenu />
                                         </li>
                                     </ul>
                                 </nav>
@@ -229,7 +229,7 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                                     </ul>
                                 </li>
                                 <li className="-mx-6 mt-auto">
-                                    {/* <UserMenu /> */}
+                                    <UserMenu />
                                 </li>
                             </ul>
                         </nav>
@@ -242,14 +242,14 @@ export default function AppLayout({ children, pageTitle = 'Dashboard' }: AppLayo
                         <Bars3Icon aria-hidden="true" className="size-6" />
                     </button>
                     <div className="flex-1 text-sm/6 font-semibold text-gray-900">{pageTitle}</div>
-                    <a href="#">
+                    {/* <a href="#">
                         <span className="sr-only">Your profile</span>
                         <img
                             alt=""
                             src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
                             className="size-8 rounded-full bg-gray-50"
                         />
-                    </a>
+                    </a> */}
                 </div>
 
                 <main className="py-4 lg:pl-72">
