@@ -9,5 +9,6 @@ rutasComercio.get('/products/available', controlador.getDisponibles);
 
 rutasComercio.get('/products/available/all', controlador.getDisponiblesSinPaginacion);
 rutasComercio.get('/products/available/with-locations', controlador.getDisponiblesConUbicaciones);
+rutasComercio.get('/products/available/product', controlador.getProductoDisponibleConUbicaciones);
 
 module.exports = rutasComercio;

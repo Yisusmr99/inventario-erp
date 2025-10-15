@@ -56,7 +56,28 @@ class ListarSinPaginacionDto {
   }
 }
 
+// Nuevo DTO para producto específico
+class ObtenerProductoDisponibleDto {
+  // GET /api/commerce/products/available/product
+  static validate(query = {}) {
+    const idProducto = aEnteroOpcional(query.id_producto ?? query.idProducto, 'id_producto');
+    
+    if (idProducto === null) {
+      throw new Error('id_producto es requerido');
+    }
+    
+    if (idProducto <= 0) {
+      throw new Error('id_producto debe ser mayor a 0');
+    }
+
+    return {
+      idProducto
+    };
+  }
+}
+
 module.exports = {
   ListarDisponiblesSimpleDto,
-  ListarSinPaginacionDto
+  ListarSinPaginacionDto,
+  ObtenerProductoDisponibleDto
 };

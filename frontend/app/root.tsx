@@ -3,6 +3,23 @@ import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration, 
 import type { Route } from "./+types/root";
 import "./app.css";
 
+import Keycloak from "keycloak-js";
+import { ReactKeycloakProvider, useKeycloak } from "@react-keycloak/web";
+import { useEffect, useState } from "react";
+
+const keycloak = new Keycloak({
+  url: import.meta.env.VITE_KEYCLOAK_URL!,
+  realm: import.meta.env.VITE_KEYCLOAK_REALM!,
+  clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID!,
+});
+
+// (Opcional) evita usar window en SSR
+const silentSSO =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/silent-check-sso.html`
+    : undefined;
+
+
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -12,6 +29,27 @@ export const links: Route.LinksFunction = () => [
       "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
 ];
+
+/* ---------- Auth gate que protege TODAS las rutas ---------- */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { keycloak, initialized } = useKeycloak();
+  const [mounted, setMounted] = useState(false);
+
+  // Marca cuando estamos en cliente
+  useEffect(() => setMounted(true), []);
+
+  // Si no estamos en el cliente o Keycloak no ha inicializado, mostrar loading
+  if (!mounted || !initialized) {
+    return <div>Loading authentication...</div>;
+  }
+
+  // Si está inicializado pero no autenticado, mostrar mensaje
+  if (!keycloak.authenticated) {
+    return <div>Not authenticated. Redirecting...</div>;
+  }
+
+  return <>{children}</>;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -33,9 +71,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    // <Layout>
-      <Outlet />
-    // </Layout>
+    <ReactKeycloakProvider
+      authClient={keycloak}
+      initOptions={{
+        onLoad: 'login-required',
+        checkLoginIframe: false,
+        pkceMethod: 'S256',
+        enableLogging: import.meta.env.DEV,
+        redirectUri: typeof window !== 'undefined' ? window.location.origin : undefined,
+      }}
+      onEvent={(event, error) => {
+        if (error) {
+          console.error('Keycloak error:', error);
+        }
+      }}
+      onTokens={({ token, idToken, refreshToken }) => {
+        if (import.meta.env.DEV) {
+          console.log('KC tokens received');
+        }
+        // (Opcional) Persistencia temporal en sessionStorage:
+        if (token) sessionStorage.setItem('kc_token', token);
+        if (refreshToken) sessionStorage.setItem('kc_refreshToken', refreshToken);
+        if (idToken) sessionStorage.setItem('kc_idToken', idToken);
+      }}
+    >
+      <AuthGate>
+        <Outlet />
+      </AuthGate>
+    </ReactKeycloakProvider>
   );
 }
 

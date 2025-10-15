@@ -73,6 +73,7 @@ class ProductoDisponibilidadModelo {
           SELECT
             t.id_producto,
             p.nombre,
+            p.precio,
             t.stock_total,
             l.id_ubicacion,
             l.nombre_ubicacion,
@@ -109,6 +110,7 @@ class ProductoDisponibilidadModelo {
             mapa.set(r.id_producto, {
               id_producto: r.id_producto,
               nombre: r.nombre,
+              precio: Number(r.precio || 0),
               stock_total: Number(r.stock_total || 0),
               ubicaciones: []
             });
@@ -125,6 +127,69 @@ class ProductoDisponibilidadModelo {
           }
         }
         return Array.from(mapa.values());
+      }
+
+      static async obtenerDisponibilidadProductoConUbicaciones({ idProducto }) {
+        const sql = `
+          SELECT
+            t.id_producto,
+            p.nombre,
+            p.precio,
+            t.stock_total,
+            l.id_ubicacion,
+            l.nombre_ubicacion,
+            l.stock_ubicacion
+          FROM (
+            SELECT p.id_producto, COALESCE(SUM(i.cantidad_actual),0) AS stock_total
+            FROM Producto p
+            LEFT JOIN inventario i ON i.id_producto = p.id_producto
+            WHERE p.estado = 1 AND p.id_producto = ?
+            GROUP BY p.id_producto
+          ) AS t
+          JOIN Producto p ON p.id_producto = t.id_producto
+          LEFT JOIN (
+            SELECT
+              i.id_producto,
+              u.id_ubicacion,
+              u.nombre_ubicacion AS nombre_ubicacion,
+              COALESCE(SUM(i.cantidad_actual),0) AS stock_ubicacion
+            FROM inventario i
+            JOIN ubicacion u ON u.id_ubicacion = i.id_ubicacion
+            WHERE u.estado = 1 AND i.id_producto = ?
+            GROUP BY i.id_producto, u.id_ubicacion, u.nombre_ubicacion
+          ) AS l
+            ON l.id_producto = t.id_producto
+          ORDER BY p.id_producto, l.nombre_ubicacion
+        `;
+
+        const [rows] = await conexionBD.query(sql, [idProducto, idProducto]);
+
+        if (rows.length === 0) {
+          return null;
+        }
+
+        const producto = {
+          id_producto: rows[0].id_producto,
+          nombre: rows[0].nombre,
+          precio: Number(rows[0].precio || 0),
+          stock_total: Number(rows[0].stock_total || 0),
+          ubicaciones: []
+        };
+
+        for (const r of rows) {
+          if (r.id_ubicacion != null) {
+            const s = Number(r.stock_ubicacion || 0);
+            if (s !== 0) {
+              producto.ubicaciones.push({
+                id_ubicacion: r.id_ubicacion,
+                nombre: r.nombre_ubicacion,
+                stock: s
+              });
+            }
+          }
+        }
+
+        return producto;
       }
   }
 
